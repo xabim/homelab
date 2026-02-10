@@ -1,0 +1,51 @@
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-medium: &resource_medium
+  mem_limit: 512m
+  mem_reservation: 128m
+  cpus: 1.0
+  pids_limit: 512
+
+# Role-specific resource anchors
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  # Podsync: create RSS feeds from YouTube/Vimeo channels
+  podsync:
+    image: ghcr.io/mxpv/podsync:nightly
+    container_name: podsync
+    command: ["/app/podsync", "--no-banner"]
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${PODSYNC_DATA}:/app/data
+      - ${PODSYNC_DB}:/app/db
+      - ${PODSYNC_CONFIG_TOML}:/app/config.toml:ro
+    networks:
+      - proxy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    labels:
+      - traefik.enable=true
+
+      # Router (HTTPS only)
+      - traefik.http.routers.podsync.rule=Host(`podsync.home`)
+      - traefik.http.routers.podsync.entrypoints=websecure
+      - traefik.http.routers.podsync.tls=true
+      - traefik.http.routers.podsync.tls.certresolver=stepca
+      - traefik.http.services.podsync.loadbalancer.server.port=8080
+    <<: [*resource_medium, *resource_service]
+
+networks:
+  proxy:
+    external: true

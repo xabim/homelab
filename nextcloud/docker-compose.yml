@@ -1,0 +1,222 @@
+name: nextcloud
+
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-small: &resource_small
+  mem_limit: 256m
+  mem_reservation: 64m
+  cpus: 0.5
+  pids_limit: 256
+
+x-resource-medium: &resource_medium
+  mem_limit: 512m
+  mem_reservation: 128m
+  cpus: 1.0
+  pids_limit: 512
+
+x-resource-large: &resource_large
+  mem_limit: 1g
+  mem_reservation: 256m
+  cpus: 2.0
+  pids_limit: 1024
+
+x-resource-xlarge: &resource_xlarge
+  mem_limit: 2g
+  mem_reservation: 512m
+  cpus: 4.0
+  pids_limit: 2048
+
+# Role-specific resource anchors
+x-resource-cache: &resource_cache
+  stop_grace_period: 20s
+  oom_score_adj: -200
+
+x-resource-db: &resource_db
+  stop_grace_period: 60s
+  oom_score_adj: -100
+
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  # PostgreSQL database for Nextcloud
+  db:
+    <<: [*resource_large, *resource_db]
+    image: postgres:16
+    container_name: nextcloud-db
+    restart: unless-stopped
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${NC_DB_VOL}:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Redis for caching and file locking
+  redis:
+    <<: [*resource_medium, *resource_cache]
+    image: redis:7
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${NC_REDIS_VOL}:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # Nextcloud web application (Apache)
+  nextcloud:
+    <<: [*resource_xlarge, *resource_service]
+    image: nextcloud:31-apache
+    container_name: nextcloud
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    environment:
+      POSTGRES_HOST: db
+      REDIS_HOST: redis
+
+    volumes:
+      - ${NC_APP_VOL}:/var/www/html
+      - ${NC_DATA_DIR}:/var/www/html/data
+      # Trust internal CA for HTTPS calls to internal services
+      - ${STEP_CA_ROOT_CA}:/usr/local/share/ca-certificates/stepca-root.crt:ro
+
+    networks:
+      - internal
+      - proxy
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+
+      # Router (HTTPS only)
+      - traefik.http.routers.nextcloud.rule=Host(`${NC_DOMAIN}`)
+      - traefik.http.routers.nextcloud.entrypoints=websecure
+      - traefik.http.routers.nextcloud.tls=true
+      - traefik.http.routers.nextcloud.tls.certresolver=${TRAEFIK_CERTRESOLVER}
+      - traefik.http.services.nextcloud.loadbalancer.server.port=80
+
+      # Apply security headers and well-known redirects
+      - traefik.http.routers.nextcloud.middlewares=nextcloud-headers@docker,nextcloud-redirect-wellknown@docker
+
+      # Security headers
+      - traefik.http.middlewares.nextcloud-headers.headers.forceSTSHeader=true
+      - traefik.http.middlewares.nextcloud-headers.headers.stsSeconds=15552000
+      - traefik.http.middlewares.nextcloud-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.nextcloud-headers.headers.stsPreload=true
+      - traefik.http.middlewares.nextcloud-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.nextcloud-headers.headers.referrerPolicy=no-referrer
+      - traefik.http.middlewares.nextcloud-headers.headers.customFrameOptionsValue=SAMEORIGIN
+
+      # Redirect .well-known endpoints to proper DAV paths
+      - traefik.http.middlewares.nextcloud-redirect-wellknown.redirectregex.regex=^https://([^/]+)/\\.well-known/(carddav|caldav)$
+      - traefik.http.middlewares.nextcloud-redirect-wellknown.redirectregex.replacement=https://$${1}/remote.php/dav/
+      - traefik.http.middlewares.nextcloud-redirect-wellknown.redirectregex.permanent=true
+
+  # Nextcloud cron service for background jobs
+  cron:
+    <<: [*resource_small, *resource_service]
+    image: nextcloud:31-apache
+    container_name: nextcloud-cron
+    restart: unless-stopped
+    depends_on:
+      - nextcloud
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${NC_APP_VOL}:/var/www/html
+      - ${NC_DATA_DIR}:/var/www/html/data
+    entrypoint: /cron.sh
+    networks:
+      - internal
+
+  # ONLYOFFICE Document Server for collaborative editing
+  onlyoffice:
+    <<: [*resource_xlarge, *resource_service]
+    image: onlyoffice/documentserver:9.2
+    container_name: onlyoffice
+    restart: unless-stopped
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    environment:
+      # Trust Step-CA for outbound HTTPS requests
+      NODE_EXTRA_CA_CERTS: /usr/local/share/ca-certificates/stepca-root.crt
+
+      # Configure external HTTPS to avoid mixed content warnings
+      DS_EXTERNAL_HOST: "${OO_DOMAIN}"
+      DS_EXTERNAL_PORT: "443"
+      DS_EXTERNAL_SCHEME: "https"
+
+      # Allow connections to Nextcloud (reduce if possible for security)
+      USE_UNAUTHORIZED_STORAGE: "true"
+
+    volumes:
+      - ${OO_DATA_VOL}:/var/www/onlyoffice/Data
+      - ${OO_LOGS_VOL}:/var/log/onlyoffice
+      - ${STEP_CA_ROOT_CA}:/usr/local/share/ca-certificates/stepca-root.crt:ro
+
+    networks:
+      - internal
+      - proxy
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+
+      # Router (HTTPS only)
+      - traefik.http.routers.onlyoffice.rule=Host(`${OO_DOMAIN}`)
+      - traefik.http.routers.onlyoffice.entrypoints=websecure
+      - traefik.http.routers.onlyoffice.tls=true
+      - traefik.http.routers.onlyoffice.tls.certresolver=${TRAEFIK_CERTRESOLVER}
+      - traefik.http.services.onlyoffice.loadbalancer.server.port=80
+
+      # Apply both forward headers and security headers
+      - traefik.http.routers.onlyoffice.middlewares=onlyoffice-forward@docker,onlyoffice-headers@docker
+
+      # Forward HTTPS protocol and port for correct URL generation
+      - traefik.http.middlewares.onlyoffice-forward.headers.customrequestheaders.X-Forwarded-Proto=https
+      - traefik.http.middlewares.onlyoffice-forward.headers.customrequestheaders.X-Forwarded-Port=443
+
+      # Security headers: allow embedding only from Nextcloud
+      - traefik.http.middlewares.onlyoffice-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.onlyoffice-headers.headers.referrerPolicy=no-referrer
+      - traefik.http.middlewares.onlyoffice-headers.headers.customResponseHeaders.Content-Security-Policy=frame-ancestors 'self' https://${NC_DOMAIN};
+
+networks:
+  # Internal network for service-to-service communication
+  internal:
+    driver: bridge
+
+  # External Traefik network
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK}

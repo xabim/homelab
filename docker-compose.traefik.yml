@@ -1,0 +1,23 @@
+services:
+  myapp:
+    image: my/image:tag
+    networks:
+      - proxy
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.myapp.rule=Host(`myapp.home`)
+      - traefik.http.routers.myapp.entrypoints=websecure
+      - traefik.http.routers.myapp.tls=true
+      - traefik.http.routers.myapp.tls.certresolver=stepca
+      - traefik.http.services.myapp.loadbalancer.server.port=8080
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    <<: *resource_medium
+    <<: *resource_service
+
+networks:
+  proxy:
+    external: true

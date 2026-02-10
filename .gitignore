@@ -1,0 +1,113 @@
+# =============================================================================
+# Secrets and Sensitive Data
+# =============================================================================
+
+# Environment files with secrets
+*.env.secrets
+.env.secrets
+
+# All .env files (uncomment if you want to exclude all env files)
+# *.env
+# .env
+# .env.*
+
+# Specific environment files that may contain secrets
+**/.env.local
+**/.env.production
+
+# =============================================================================
+# Certificates and Keys
+# =============================================================================
+
+# Private keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+!root_ca.crt
+
+# SSH keys
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.pub
+
+# =============================================================================
+# Database and Backups
+# =============================================================================
+
+# Database dumps
+*.sql
+*.sql.gz
+*.dump
+*.db
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# =============================================================================
+# Logs and Temporary Files
+# =============================================================================
+
+# Log files
+*.log
+logs/
+**/*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Git and Version Control
+# =============================================================================
+
+# Git files (if nested repos)
+.git/
+.gitconfig
+
+# =============================================================================
+# IDE and Editor Files
+# =============================================================================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+
+# Emacs
+*~
+\#*\#
+
+# =============================================================================
+# Docker and Container Specific
+# =============================================================================
+
+# Docker override files (if they contain secrets)
+docker-compose.override.yml
+
+# =============================================================================
+# Documentation (Optional - uncomment if needed)
+# =============================================================================
+
+# Uncomment to exclude sensitive documentation
+# TODO.txt
+# NOTES.txt
+# credentials.md

@@ -1,0 +1,47 @@
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-small: &resource_small
+  mem_limit: 256m
+  mem_reservation: 64m
+  cpus: 0.5
+  pids_limit: 256
+
+# Role-specific resource anchors
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  # Navidrome: music streaming server
+  navidrome:
+    image: deluan/navidrome:${NAVIDROME_VERSION:-latest}
+    container_name: navidrome
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${NAVIDROME_DATA_VOL}:/data
+      # Music folder mounted read-only
+      - ${NAVIDROME_MUSIC_DIR}:/music:ro
+    networks:
+      - proxy
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+
+      # Router (HTTPS only)
+      - traefik.http.routers.navidrome.rule=Host(`music.home`)
+      - traefik.http.routers.navidrome.entrypoints=websecure
+      - traefik.http.routers.navidrome.tls=true
+      - traefik.http.routers.navidrome.tls.certresolver=stepca
+      - traefik.http.services.navidrome.loadbalancer.server.port=4533
+    security_opt:
+      - no-new-privileges:true
+    <<: [*resource_small, *resource_service]
+
+networks:
+  proxy:
+    external: true
+

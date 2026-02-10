@@ -1,0 +1,41 @@
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-xsmall: &resource_xsmall
+  mem_limit: 128m
+  mem_reservation: 32m
+  cpus: 0.25
+  pids_limit: 128
+
+# Role-specific resource anchors
+x-resource-proxy: &resource_proxy
+  stop_grace_period: 60s
+  oom_score_adj: -400
+
+services:
+  docker-socket-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:${DOCKER_SOCKET_PROXY_VERSION:-latest}
+    container_name: docker-socket-proxy
+    env_file:
+      - ../.env.global
+      - .env
+    volumes:
+      # Mount Docker socket as read-only for security
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    tmpfs:
+      - /run
+      - /tmp
+    networks:
+      - dockersock
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    <<: [*resource_xsmall, *resource_proxy]
+
+networks:
+  dockersock:
+    name: dockersock
+    external: true

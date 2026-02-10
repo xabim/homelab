@@ -1,0 +1,118 @@
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-small: &resource_small
+  mem_limit: 256m
+  mem_reservation: 64m
+  cpus: 0.5
+  pids_limit: 256
+
+x-resource-large: &resource_large
+  mem_limit: 1g
+  mem_reservation: 256m
+  cpus: 2.0
+  pids_limit: 1024
+
+# Role-specific resource anchors
+x-resource-db: &resource_db
+  stop_grace_period: 60s
+  oom_score_adj: -100
+
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  # Redis broker for Celery task queue
+  broker:
+    image: docker.io/library/redis:${REDIS_VERSION:-latest}
+    command: ["redis-server", "--appendonly", "yes"]
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${PAPERLESS_REDIS_DATA}:/data
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - DAC_OVERRIDE
+      - FOWNER
+    cap_drop:
+      - ALL
+    <<: [*resource_small, *resource_service]
+
+  # PostgreSQL database for Paperless
+  db:
+    image: docker.io/library/postgres:${POSTGRES_VERSION:-latest}
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${PAPERLESS_POSTGRES_DATA}:/var/lib/postgresql/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    cap_drop:
+      - ALL
+    <<: [*resource_large, *resource_db]
+
+  # Paperless-ngx web application
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:${PAPERLESS_VERSION:-latest}
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${PAPERLESS_APP_DATA}:/usr/src/paperless/data
+      - ${PAPERLESS_MEDIA}:/usr/src/paperless/media
+      - ${PAPERLESS_CONSUME}:/usr/src/paperless/consume
+      - ${PAPERLESS_EXPORT}:/usr/src/paperless/export
+    tmpfs:
+      - /tmp
+    networks:
+      - default
+      - proxy
+    depends_on:
+      - db
+      - broker
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+
+      # Router (HTTPS only)
+      - traefik.http.routers.paperless.rule=Host(`paperless.home`)
+      - traefik.http.routers.paperless.entrypoints=websecure
+      - traefik.http.routers.paperless.tls=true
+      - traefik.http.routers.paperless.tls.certresolver=stepca
+      - traefik.http.services.paperless.loadbalancer.server.port=8000
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+    cap_drop:
+      - ALL
+    <<: [*resource_large, *resource_service]
+
+networks:
+  proxy:
+    external: true
+    name: proxy

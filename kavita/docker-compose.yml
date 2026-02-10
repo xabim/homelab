@@ -1,0 +1,46 @@
+# Medium resources for Kavita book server
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-medium: &resource_medium
+  mem_limit: 512m
+  mem_reservation: 128m
+  cpus: 1.0
+  pids_limit: 512
+
+# Role-specific resource anchors
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  # Kavita: digital library for books and comics
+  kavita:
+    image: jvmilazz0/kavita:${KAVITA_VERSION:-latest}
+    container_name: kavita
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${KAVITA_CONFIG_DIR}:/kavita/config
+      - ${KAVITA_BOOKS_DIR}:/books:ro
+    networks:
+      - proxy
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+
+      # Router (HTTPS only)
+      - traefik.http.routers.kavita.rule=Host(`books.home`)
+      - traefik.http.routers.kavita.entrypoints=websecure
+      - traefik.http.routers.kavita.tls=true
+      - traefik.http.routers.kavita.tls.certresolver=stepca
+      - traefik.http.services.kavita.loadbalancer.server.port=5000
+    security_opt:
+      - no-new-privileges:true
+    <<: [*resource_medium, *resource_service]
+
+networks:
+  proxy:
+    external: true

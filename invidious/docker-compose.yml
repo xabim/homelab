@@ -1,0 +1,120 @@
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-medium: &resource_medium
+  mem_limit: 512m
+  mem_reservation: 128m
+  cpus: 1.0
+  pids_limit: 512
+
+x-resource-large: &resource_large
+  mem_limit: 1g
+  mem_reservation: 256m
+  cpus: 2.0
+  pids_limit: 1024
+
+# Role-specific resource anchors
+x-resource-db: &resource_db
+  stop_grace_period: 60s
+  oom_score_adj: -100
+
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+x-resource-worker: &resource_worker
+  stop_grace_period: 45s
+  oom_score_adj: 300
+
+services:
+  # Invidious: privacy-friendly YouTube frontend
+  invidious:
+    <<: [*resource_large, *resource_service]
+    image: quay.io/invidious/invidious:${INVIDIOUS_VERSION:-latest}
+    restart: unless-stopped
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    environment:
+      INVIDIOUS_CONFIG: |
+        db:
+          dbname: ${POSTGRES_DB}
+          user: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+          host: invidious-db
+          port: 5432
+        check_tables: true
+        domain: ${INVIDIOUS_FQDN}
+        https_only: true
+        invidious_companion:
+          - private_url: "http://companion:8282/companion"
+        invidious_companion_key: "${SERVER_SECRET_KEY}"
+        hmac_key: "${HMAC_KEY}"
+    depends_on:
+      invidious-db:
+        condition: service_healthy
+      companion:
+        condition: service_started
+    networks:
+      - proxy
+      - invidious
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+
+      # Router (HTTPS only)
+      - traefik.http.routers.invidious.rule=Host(`${INVIDIOUS_FQDN}`)
+      - traefik.http.routers.invidious.entrypoints=websecure
+      - traefik.http.routers.invidious.tls=true
+      - traefik.http.routers.invidious.tls.certresolver=stepca
+      - traefik.http.services.invidious.loadbalancer.server.port=3000
+
+  # Companion service: provides YouTube API responses to Invidious
+  companion:
+    <<: [*resource_medium, *resource_worker]
+    image: quay.io/invidious/invidious-companion:latest
+    restart: unless-stopped
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    command: ["/tini", "--", "/app/invidious_companion"]
+    volumes:
+      - ${INVIDIOUS_COMPANION_CACHE}:/var/tmp/youtubei.js:rw
+    networks:
+      - invidious
+    cap_drop:
+      - ALL
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+
+  # PostgreSQL database for Invidious
+  invidious-db:
+    <<: [*resource_large, *resource_db]
+    image: postgres:${POSTGRES_VERSION:-latest}
+    restart: unless-stopped
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${INVIDIOUS_PG_DATA}:/var/lib/postgresql/data
+      # Mount Invidious schema and init script
+      - ./db-init/sql:/config/sql:ro
+      - ./db-init/init-invidious-db.sh:/docker-entrypoint-initdb.d/init-invidious-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+    networks:
+      - invidious
+
+networks:
+  proxy:
+    external: true
+  invidious: {}

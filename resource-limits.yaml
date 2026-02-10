@@ -1,0 +1,91 @@
+# ------------------------------
+# Resource defaults (Compose, non-Swarm)
+# ------------------------------
+#
+# IMPORTANT NOTE:
+# This file serves as the CENTRAL REFERENCE for resource defaults
+# used across all Docker stacks.
+#
+# LIMITATION: Docker Compose does not share YAML anchors between files,
+# nor via `include:` or COMPOSE_FILE. Therefore, each docker-compose.yml
+# must define its own anchors locally.
+#
+# USAGE: Copy the required anchors from here into each docker-compose.yml
+# as appropriate.
+# ------------------------------
+
+x-resource-xsmall: &resource_xsmall
+  mem_limit: 128m
+  mem_reservation: 32m
+  cpus: 0.25
+  pids_limit: 128
+
+x-resource-small: &resource_small
+  mem_limit: 256m
+  mem_reservation: 64m
+  cpus: 0.5
+  pids_limit: 256
+
+x-resource-medium: &resource_medium
+  mem_limit: 512m
+  mem_reservation: 128m
+  cpus: 1.0
+  pids_limit: 512
+
+x-resource-large: &resource_large
+  mem_limit: 1g
+  mem_reservation: 256m
+  cpus: 2.0
+  pids_limit: 1024
+
+x-resource-xlarge: &resource_xlarge
+  mem_limit: 2g
+  mem_reservation: 512m
+  cpus: 4.0
+  pids_limit: 2048
+
+# Role-specific stop/oom anchors (merge these with size anchors as needed)
+x-resource-core: &resource_core
+  stop_grace_period: 60s
+  oom_score_adj: -400
+
+x-resource-cache: &resource_cache
+  stop_grace_period: 20s
+  oom_score_adj: -200
+
+x-resource-db: &resource_db
+  stop_grace_period: 60s
+  oom_score_adj: -100
+
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+x-resource-worker: &resource_worker
+  stop_grace_period: 45s
+  oom_score_adj: 300
+
+x-resource-batch: &resource_batch
+  stop_grace_period: 120s
+  oom_score_adj: 500
+
+### Usage:
+# services:
+#   myservice:
+#     <<: *resource_small
+
+
+## Hardening tips:
+# security_opt:
+#   - no-new-privileges:true
+# cap_drop:
+#   - ALL
+# tmpfs:
+#   - /tmp
+
+### Read-Only:
+# read_only: true
+# tmpfs:
+#   - /tmp
+#   - /run
+

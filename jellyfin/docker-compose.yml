@@ -1,0 +1,52 @@
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-xlarge: &resource_xlarge
+  mem_limit: 2g
+  mem_reservation: 512m
+  cpus: 4.0
+  pids_limit: 2048
+
+# Role-specific resource anchors
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  # Jellyfin: media server for movies, TV shows, and music
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:${JELLYFIN_VERSION:-latest}
+    container_name: jellyfin
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    volumes:
+      - ${JELLYFIN_CONFIG_VOL}:/config
+      - ${JELLYFIN_CACHE_VOL}:/cache
+      - ${JELLYFIN_MOVIES_DIR}:/media/movies:ro
+      - ${JELLYFIN_TVSHOWS_DIR}:/media/tvshows:ro
+      - ${JELLYFIN_MUSIC_DIR}:/media/music:ro
+    devices:
+      # Hardware acceleration for transcoding
+      - /dev/dri:/dev/dri
+    tmpfs:
+      # Transcode directory: 2GB tmpfs to avoid RAM pressure
+      - /transcode:rw,noexec,nosuid,size=2g
+    networks:
+      - proxy
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+
+      # Router (HTTPS only)
+      - traefik.http.routers.jellyfin.rule=Host(`jellyfin.home`)
+      - traefik.http.routers.jellyfin.entrypoints=websecure
+      - traefik.http.routers.jellyfin.tls=true
+      - traefik.http.routers.jellyfin.tls.certresolver=stepca
+      - traefik.http.services.jellyfin.loadbalancer.server.port=8096
+    <<: [*resource_xlarge, *resource_service]
+
+networks:
+  proxy:
+    external: true

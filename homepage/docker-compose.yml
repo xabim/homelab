@@ -1,0 +1,55 @@
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-small: &resource_small
+  mem_limit: 256m
+  mem_reservation: 64m
+  cpus: 0.5
+  pids_limit: 256
+
+# Role-specific resource anchors
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  # Homepage: application dashboard
+  homepage:
+    image: ghcr.io/gethomepage/homepage:${HOMEPAGE_VERSION:-latest}
+    container_name: homepage
+    env_file:
+      - ../.env.global
+      - .env
+    volumes:
+      - ${HOMEPAGE_CONFIG_VOL}:/app/config:rw
+      # Mount custom CA certificate for HTTPS services
+      - ${STEP_CA_ROOT_CA}:/usr/local/share/ca-certificates/home-root-ca.crt:ro
+    tmpfs:
+      - /tmp
+    networks:
+      - default
+      - proxy
+      - dockersock
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+
+      # Router (HTTPS only)
+      - traefik.http.routers.homepage.rule=Host(`homepage.home`)
+      - traefik.http.routers.homepage.entrypoints=websecure
+      - traefik.http.routers.homepage.tls=true
+      - traefik.http.routers.homepage.tls.certresolver=stepca
+      - traefik.http.services.homepage.loadbalancer.server.port=3000
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "0:0"
+    <<: [*resource_small, *resource_service]
+
+networks:
+  proxy:
+    external: true
+  dockersock:
+    external: true

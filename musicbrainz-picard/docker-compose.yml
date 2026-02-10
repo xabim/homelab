@@ -1,0 +1,36 @@
+services:
+  # MusicBrainz Picard: music tagger with VNC interface
+  # Note: manual start only (no auto-restart)
+  picard:
+    image: mikenye/picard
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    ports:
+      # VNC web interface (local access only)
+      - "5800:5800"
+    volumes:
+      - ${PICARD_CONFIG_VOL}:/config
+      # Music folder mounted RW only when Picard is running
+      - ${PICARD_MUSIC_DIR}:/music
+    networks:
+      - proxy
+    restart: "no"
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+
+      # Router (HTTPS only)
+      - traefik.http.routers.picard.rule=Host(`picard.home`)
+      - traefik.http.routers.picard.entrypoints=websecure
+      - traefik.http.routers.picard.tls=true
+      - traefik.http.routers.picard.tls.certresolver=stepca
+      - traefik.http.services.picard.loadbalancer.server.port=5800
+    security_opt:
+      - no-new-privileges:true
+    # Note: cap_drop omitted due to VNC compatibility issues
+
+networks:
+  proxy:
+    external: true

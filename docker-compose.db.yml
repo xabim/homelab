@@ -1,0 +1,45 @@
+services:
+  app:
+    image: my/app:tag
+    environment:
+      DB_HOST: db
+    networks:
+      - proxy
+      - internal
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.app.rule=Host(`app.home`)
+      - traefik.http.routers.app.entrypoints=websecure
+      - traefik.http.routers.app.tls=true
+      - traefik.http.routers.app.tls.certresolver=stepca
+      - traefik.http.services.app.loadbalancer.server.port=8080
+    <<: *resource_medium
+    <<: *resource_service
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /srv/docker/volumes/app/postgres:/var/lib/postgresql/data
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+    <<: *resource_large
+    <<: *resource_db
+
+networks:
+  proxy:
+    external: true
+  internal: {}

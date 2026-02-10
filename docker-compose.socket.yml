@@ -1,0 +1,24 @@
+services:
+  myapp:
+    image: my/image:tag
+    environment:
+      DOCKER_HOST: "tcp://docker-socket-proxy:2375"
+    networks:
+      - proxy
+      - dockersock
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.myapp.rule=Host(`myapp.home`)
+      - traefik.http.routers.myapp.entrypoints=websecure
+      - traefik.http.routers.myapp.tls=true
+      - traefik.http.routers.myapp.tls.certresolver=stepca
+      - traefik.http.services.myapp.loadbalancer.server.port=3000
+    <<: *resource_medium
+    <<: *resource_service
+
+networks:
+  proxy:
+    external: true
+  dockersock:
+    external: true

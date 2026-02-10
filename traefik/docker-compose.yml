@@ -1,0 +1,69 @@
+# Anchors copied from ../resource-limits.yaml (only the ones referenced below)
+
+# Resource size anchors
+x-resource-small: &resource_small
+  mem_limit: 256m
+  mem_reservation: 64m
+  cpus: 0.5
+  pids_limit: 256
+
+# Role-specific resource anchors
+x-resource-core: &resource_core
+  stop_grace_period: 60s
+  oom_score_adj: -400
+
+services:
+  # Traefik: reverse proxy and load balancer
+  traefik:
+    image: traefik:v3.6.7
+    container_name: traefik
+    command:
+      - sh
+      - -lc
+      - |
+        update-ca-certificates || true
+        traefik --configFile=/etc/traefik/traefik.yml
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    ports:
+      - "80:80"
+      - "443:443"
+      # Port-based access (alternative to DNS-based routing)
+      - "9001:9001"  # Portainer
+      - "9002:9002"  # Jellyfin
+      - "9003:9003"  # Homepage
+      - "9004:9004"  # Pi-hole
+      - "9005:9005"  # Invidious
+      - "9006:9006"  # Paperless
+      - "9007:9007"  # Uptime-kuma
+      - "9008:9008"  # Immich
+      - "9010:9010"  # Podsync
+    volumes:
+      - ${TRAEFIK_CONFIG_FILE}:/etc/traefik/traefik.yml:ro
+      - ${TRAEFIK_CERTS_VOL}:/certs
+      - ${TRAEFIK_ROOT_CA}:/etc/ssl/step/root_ca.crt:ro
+      - ${TRAEFIK_ROOT_CA}:/usr/local/share/ca-certificates/step-root-ca.crt:ro
+      - ${TRAEFIK_DYNAMIC_VOL}:/etc/traefik/dynamic:ro
+    networks:
+      - proxy
+      - dockersock
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    <<: [*resource_small, *resource_core]
+
+networks:
+  proxy:
+    external: true
+  dockersock:
+    external: true
