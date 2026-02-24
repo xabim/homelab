@@ -5,6 +5,7 @@
 # Environment files with secrets
 *.env.secrets
 .env.secrets
+.secrets
 
 # All .env files (uncomment if you want to exclude all env files)
 # *.env
