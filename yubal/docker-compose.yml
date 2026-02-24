@@ -1,0 +1,48 @@
+# Anchors copied from ../resource-limits.yaml (only referenced)
+
+# Resource size anchors
+x-resource-small: &resource_small
+  mem_limit: 256m
+  mem_reservation: 64m
+  cpus: 0.5
+  pids_limit: 256
+
+# Role-specific resource anchors
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  yubal:
+    image: ghcr.io/guillevc/yubal:latest
+    env_file:
+      - ../.env.global
+      - .env
+      - .env.secrets
+    container_name: yubal
+    networks:
+      - proxy
+    restart: no
+    labels:
+      - traefik.enable=true
+
+      # Router (HTTPS only)
+      - traefik.http.routers.yubal.rule=Host(`yubal.home`)
+      - traefik.http.routers.yubal.entrypoints=websecure
+      - traefik.http.routers.yubal.tls=true
+      - traefik.http.routers.yubal.tls.certresolver=stepca
+      - traefik.http.services.yubal.loadbalancer.server.port=8000
+    security_opt:
+      - no-new-privileges:true
+    <<: [*resource_small, *resource_service]
+    user: 1000:1000
+    environment:
+      YUBAL_SCHEDULER_CRON: "0 0 * * *"
+      YUBAL_TZ: UTC
+    volumes:
+      - ${YUBAL_VOLUME}:/app/config
+      - ${MUSIC_FOLDER}:/app/data
+
+networks:
+  proxy:
+    external: true
