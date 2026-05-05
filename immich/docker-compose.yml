@@ -25,6 +25,12 @@ x-resource-xlarge: &resource_xlarge
   cpus: 4.0
   pids_limit: 2048
 
+x-resource-xxlarge: &resource_xxlarge
+  mem_limit: 4g
+  mem_reservation: 1g
+  cpus: 6.0
+  pids_limit: 4096
+
 # Role-specific resource anchors
 x-resource-cache: &resource_cache
   stop_grace_period: 20s
@@ -125,7 +131,7 @@ services:
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
     container_name: immich-postgres
     restart: unless-stopped
-    <<: [*resource_large, *resource_db]
+    <<: [*resource_medium, *resource_db]
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_DB: ${DB_DATABASE_NAME}
