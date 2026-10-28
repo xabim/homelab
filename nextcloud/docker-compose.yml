@@ -50,7 +50,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/nextcloud/.env.secrets
     volumes:
       - ${NC_DB_VOL}:/var/lib/postgresql/data
     networks:
@@ -70,7 +70,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/nextcloud/.env.secrets
     volumes:
       - ${NC_REDIS_VOL}:/data
     networks:
@@ -95,7 +95,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/nextcloud/.env.secrets
     environment:
       POSTGRES_HOST: db
       REDIS_HOST: redis
@@ -149,7 +149,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/nextcloud/.env.secrets
     volumes:
       - ${NC_APP_VOL}:/var/www/html
       - ${NC_DATA_DIR}:/var/www/html/data
@@ -166,7 +166,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/nextcloud/.env.secrets
     environment:
       # Trust Step-CA for outbound HTTPS requests
       NODE_EXTRA_CA_CERTS: /usr/local/share/ca-certificates/stepca-root.crt
@@ -182,6 +182,9 @@ services:
     volumes:
       - ${OO_DATA_VOL}:/var/www/onlyoffice/Data
       - ${OO_LOGS_VOL}:/var/log/onlyoffice
+      # Explicit binds for image-declared volumes (avoid anonymous volumes)
+      - ${OO_LIB_VOL}:/var/lib/onlyoffice
+      - ${OO_FONTS_VOL}:/usr/share/fonts/truetype/custom
       - ${STEP_CA_ROOT_CA}:/usr/local/share/ca-certificates/stepca-root.crt:ro
 
     networks:

@@ -21,7 +21,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/podsync/.env.secrets
     volumes:
       - ${PODSYNC_DATA}:/app/data
       - ${PODSYNC_DB}:/app/db

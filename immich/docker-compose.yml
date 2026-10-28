@@ -64,7 +64,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/immich/.env.secrets
     environment:
       DB_HOSTNAME: immich-database
       DB_PORT: 5432
@@ -126,7 +126,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/immich/.env.secrets
     # Using Immich's recommended image with vector extensions
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
     container_name: immich-postgres

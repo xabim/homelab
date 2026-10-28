@@ -30,7 +30,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/paperless/.env.secrets
     volumes:
       - ${PAPERLESS_REDIS_DATA}:/data
     tmpfs:
@@ -54,7 +54,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/paperless/.env.secrets
     volumes:
       - ${PAPERLESS_POSTGRES_DATA}:/var/lib/postgresql
     restart: unless-stopped
@@ -76,7 +76,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/paperless/.env.secrets
     volumes:
       - ${PAPERLESS_APP_DATA}:/usr/src/paperless/data
       - ${PAPERLESS_MEDIA}:/usr/src/paperless/media

@@ -21,7 +21,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/kavita/.env.secrets
     volumes:
       - ${KAVITA_CONFIG_DIR}:/config
       - ${KAVITA_BOOKS_DIR}:/books:ro
