@@ -26,7 +26,8 @@ Deep dive: [🔐 TLS & internal PKI](../docs/tls.md)
 2. **App stacks belong to Portainer.** Don't `docker compose up` an app from the CLI while its
    Portainer stack exists — you'd get two owners for the same containers.
 3. **Infra stacks belong to the CLI** (`traefik`, `step-ca`, `docker-socket-proxy`, `portainer`).
-4. **Back up before anything that touches a database** (image updates, major versions).
+4. **Back up before anything that touches a database** (image updates, major versions):
+   `sudo scripts/backup.sh` — see [04](04-backup-and-restore.md#run-a-backup-now).
 5. **Commit before you deploy.** Portainer deploys what is on GitHub `main`, not what is on disk.
 
 ## Handy variables

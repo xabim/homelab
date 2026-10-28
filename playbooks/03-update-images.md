@@ -15,7 +15,7 @@ Prefer pinned tags: an upgrade then has a commit you can revert.
 ## Steps — app stack
 
 1. **Read the release notes.** Look for "breaking", "migration", "PostgreSQL".
-2. **Back up** the stack's database and config → [04](04-backup-and-restore.md).
+2. **Back up** the stack's database and config: `sudo scripts/backup.sh` → [04](04-backup-and-restore.md#run-a-backup-now).
 3. **Bump the version** (pinned) in `<app>/.env` or `docker-compose.yml`, commit, push.
 4. Portainer → Stacks → *app* → **Pull and redeploy** with **Re-pull image: on**.
 5. Watch the logs until migrations finish (Stacks → container → Logs). Don't stop it mid-migration.

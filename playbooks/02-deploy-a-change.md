@@ -21,7 +21,7 @@
    ```
 5. **Prepare the app** if it has state in flight:
    * **Nextcloud:** `docker exec -u www-data nextcloud php occ maintenance:mode --on`
-   * **Databases:** take a dump first if the change touches the DB service → [04](04-backup-and-restore.md)
+   * **Databases:** run `sudo scripts/backup.sh` first if the change touches the DB service → [04](04-backup-and-restore.md#run-a-backup-now)
 6. **Redeploy** in Portainer: Stacks → *app* → **Pull and redeploy**.
    * Leave **Re-pull image** **off** unless you also want an image update ([03](03-update-images.md)).
    * The redeploy runs in the background; a second click while it runs returns *"deployment already in progress"*.

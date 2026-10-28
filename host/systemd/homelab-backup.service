@@ -1,0 +1,10 @@
+[Unit]
+Description=Homelab nightly backup (NVMe -> restic on ZFS)
+After=docker.service zfs-mount.service
+Requires=zfs-mount.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/docker/stacks/scripts/backup.sh run
+Nice=10
+IOSchedulingClass=idle

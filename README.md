@@ -154,12 +154,15 @@ sequenceDiagram
 ```text
 /srv/docker/stacks/                 ← this repo (github.com/xabim/homelab)
 ├── README.md
-├── docs/                           ← deep dives (TLS & PKI)
+├── docs/                           ← deep dives (TLS & PKI) + restore guide copied to the HDD
 ├── playbooks/                      ← operational runbooks
 ├── .env.global                     ← TZ, PUID/PGID, base paths (shared by all stacks)
 ├── resource-limits.yaml            ← reference copy of the resource anchors
 ├── stacks.toml                     ← the Portainer Git stacks and their mode (always-on / on-demand)
 ├── scripts/portainer-stacks.py     ← plan / apply / redeploy those stacks via the Portainer API
+├── scripts/backup.sh               ← nightly: DB dumps + configs + secrets → restic on ZFS
+├── scripts/backup-external.sh      ← by hand: mirror /srv/data to the external HDD
+├── host/systemd/                   ← backup service + timer (copied to /etc/systemd/system)
 ├── docker-compose.{traefik,db,socket}.yml   ← snippet templates for new services
 ├── prompt.md                       ← AI-assistant prompt for adding services
 └── <stack>/
@@ -313,8 +316,9 @@ so in a comment.
 | Where | What | Protected by |
 |---|---|---|
 | `/srv/data` (ZFS mirror `tank/data`) | media, photos, Nextcloud files, books, documents, Git repos | mirror redundancy + monthly scrub (`zfsutils-linux`) |
-| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | manual backups — [playbook 04](playbooks/04-backup-and-restore.md) |
-| `/srv/docker/stacks` | compose files | Git + GitHub |
+| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | nightly restic snapshot (DB dumps, configs, secrets) → `/srv/data/backups/restic` |
+| `/srv/docker/stacks` | compose files + `.env.secrets` | Git + GitHub; secrets in the nightly snapshot |
+| External HDD | mirror of all of `/srv/data`, nightly repo included | `scripts/backup-external.sh`, run by hand |
 
 **Rules that keep data safe across stop/start:**
 
