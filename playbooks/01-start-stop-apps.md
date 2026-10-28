@@ -14,9 +14,11 @@ What happens:
 
 | Action | Effect | After a reboot |
 |---|---|---|
-| **Start** | `compose up` from Portainer's local clone (no GitHub needed) | comes back (`restart: unless-stopped`) |
+| **Start** | `compose up` from Portainer's local clone (no GitHub needed) | comes back (`restart: unless-stopped`) — also after the daily 22:00 power-off |
 | **Stop** | `compose down` — containers + project networks removed, data untouched | **stays off** (no containers exist) |
 
+> The host powers off every day at 22:00 ([08](08-reboot-and-power.md#daily-backup--power-off-at-2200)):
+> stop on-demand apps when you're done, or they start again on the next boot.
 > Picard has write access to the music library — stop it when you're done tagging.
 > Yubal downloads on a daily schedule (00:00 UTC) only while it is running.
 

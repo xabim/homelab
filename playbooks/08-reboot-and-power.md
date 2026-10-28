@@ -1,6 +1,7 @@
 # 08 · Reboot, shutdown & power
 
-**Use when:** kernel/OS updates, hardware work, or powering the server down overnight.
+**Use when:** kernel/OS updates, hardware work, powering the server down, or changing / skipping the
+daily **22:00 backup + power-off**.
 **Risk:** 🟡 everything is down for 1–2 minutes.
 
 ## What comes back after boot
@@ -12,8 +13,9 @@
 | App stack **stopped in Portainer** | ⛔ stays off (its containers don't exist) |
 | Single container stopped with *Stop* on the container | ⛔ stays off (`unless-stopped`) |
 
-So: **the server comes back exactly as you left it.** Stop the on-demand apps you don't want
-running before shutting down.
+So: **the server comes back exactly as you left it** — after a manual shutdown and after the daily
+22:00 power-off alike. An on-demand app still running at 22:00 starts again on the next boot: stop
+it when you're done.
 
 ## Planned reboot
 

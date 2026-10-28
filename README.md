@@ -53,6 +53,7 @@ with real TLS on every service and resource limits on every container.
 | 🔐 **TLS** | Internal CA (**step-ca**) issues 30-day certificates to **Traefik** over ACME — every `*.home` URL is real HTTPS · [deep dive](docs/tls.md) |
 | 🌐 **DNS** | **Pi-hole** on a separate device resolves `*.home` → the host |
 | 📱 **Ops** | Start/stop/logs/restart from a phone at `https://portainer.home` |
+| ⏻ **Power** | Every day at **22:00** (Spanish time) it backs up the NVMe, then powers off · switched on by hand or Wake-on-LAN · [playbook 08](playbooks/08-reboot-and-power.md#daily-backup--power-off-at-2200) |
 | 📖 **Runbooks** | Everything operational lives in [`playbooks/`](playbooks/README.md) |
 
 ---
@@ -378,7 +379,7 @@ Everything on the disk is plain files: `ls`, `cp` and `rsync` are all a restore 
 | 05 | [Add a new service](playbooks/05-add-a-new-service.md) | you want a new app |
 | 06 | [Infrastructure stacks](playbooks/06-infrastructure-stacks.md) | touching Traefik, step-ca, socket proxy or Portainer |
 | 07 | [Secrets](playbooks/07-secrets.md) | adding or rotating a secret |
-| 08 | [Reboot, shutdown & power](playbooks/08-reboot-and-power.md) | restarting the host |
+| 08 | [Reboot, shutdown & power](playbooks/08-reboot-and-power.md) | restarting the host, or skipping tonight's 22:00 power-off |
 | 09 | [Troubleshooting](playbooks/09-troubleshooting.md) | something doesn't load |
 | 10 | [Disaster recovery](playbooks/10-disaster-recovery.md) | Portainer, Git or the host is gone |
 | 11 | [Health check](playbooks/11-health-check.md) | monthly once-over |

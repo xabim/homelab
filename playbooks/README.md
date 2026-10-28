@@ -12,7 +12,7 @@ Short, copy-pasteable runbooks for operating the homelab. Each one says **when**
 | 05 | [Add a new service](05-add-a-new-service.md) | 🟡 new app only | 30 min |
 | 06 | [Infrastructure stacks](06-infrastructure-stacks.md) | 🔴 all routing/TLS | 10 min |
 | 07 | [Secrets](07-secrets.md) | 🟡 one app | 5 min |
-| 08 | [Reboot, shutdown & power](08-reboot-and-power.md) | 🟡 everything, briefly | 5 min |
+| 08 | [Reboot, shutdown & power](08-reboot-and-power.md) — incl. the daily 22:00 backup + power-off | 🟡 everything, briefly | 5 min |
 | 09 | [Troubleshooting](09-troubleshooting.md) | 🟢 read-only first | — |
 | 10 | [Disaster recovery](10-disaster-recovery.md) | 🔴 | 1–3 h |
 | 11 | [Health check](11-health-check.md) | 🟢 read-only | 10 min |
