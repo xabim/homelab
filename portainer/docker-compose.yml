@@ -18,18 +18,20 @@ services:
     image: portainer/portainer-ce:${PORTAINER_VERSION:-latest}
     container_name: portainer
     command:
-      - --host=tcp://docker-socket-proxy:2375
       - --http-enabled
     env_file:
       - ../.env.global
       - .env
     volumes:
       - ${PORTAINER_DATA_VOL}:/data
+      # Direct socket: Portainer needs write access (the shared proxy is read-only)
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Same-path mount so stacks can read host .env.secrets by absolute path
+      - /srv/docker/stacks:/srv/docker/stacks:ro
     tmpfs:
       - /tmp
     networks:
       - proxy
-      - dockersock
     restart: unless-stopped
     labels:
       - traefik.enable=true
@@ -44,12 +46,9 @@ services:
       - traefik.http.services.portainer-ui.loadbalancer.server.port=9000
     security_opt:
       - no-new-privileges:true
-    cap_drop:
-      - ALL
+    # cap_drop omitted: needs to read 600 .env.secrets files owned by the host user
     <<: [*resource_medium, *resource_service]
 
 networks:
   proxy:
-    external: true
-  dockersock:
     external: true
