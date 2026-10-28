@@ -64,7 +64,7 @@ services:
   # Redis for caching and file locking
   redis:
     <<: [*resource_medium, *resource_cache]
-    image: redis:7
+    image: redis:8
     container_name: nextcloud-redis
     restart: unless-stopped
     env_file:
@@ -84,7 +84,7 @@ services:
   # Nextcloud web application (Apache)
   nextcloud:
     <<: [*resource_xlarge, *resource_service]
-    image: nextcloud:31-apache
+    image: nextcloud:32-apache
     container_name: nextcloud
     restart: unless-stopped
     depends_on:
@@ -141,7 +141,7 @@ services:
   # Nextcloud cron service for background jobs
   cron:
     <<: [*resource_small, *resource_service]
-    image: nextcloud:31-apache
+    image: nextcloud:32-apache
     container_name: nextcloud-cron
     restart: unless-stopped
     depends_on:
@@ -160,7 +160,7 @@ services:
   # ONLYOFFICE Document Server for collaborative editing
   onlyoffice:
     <<: [*resource_xlarge, *resource_service]
-    image: onlyoffice/documentserver:9.2
+    image: onlyoffice/documentserver:9.4.0.1
     container_name: onlyoffice
     restart: unless-stopped
     env_file:

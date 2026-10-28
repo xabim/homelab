@@ -16,7 +16,7 @@ x-resource-service: &resource_service
 services:
   # Kavita: digital library for books and comics
   kavita:
-    image: jvmilazz0/kavita:${KAVITA_VERSION:-latest}
+    image: linuxserver/kavita:${KAVITA_VERSION:-latest}
     container_name: kavita
     env_file:
       - ../.env.global

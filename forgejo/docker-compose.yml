@@ -31,7 +31,7 @@ x-resource-service: &resource_service
 services:
   # Forgejo: self-hosted Git service
   forgejo:
-    image: codeberg.org/forgejo/forgejo:14.0.2
+    image: codeberg.org/forgejo/forgejo:15
     env_file:
       - ../.env.global
       - .env
@@ -60,13 +60,13 @@ services:
 
   # PostgreSQL database for Forgejo
   db:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     env_file:
       - ../.env.global
       - .env
       - .env.secrets
     volumes:
-      - ${FORGEJO_DB_VOL}:/var/lib/postgresql/data
+      - ${FORGEJO_DB_VOL}:/var/lib/postgresql
     networks:
       - forgejo_internal
     restart: unless-stopped
