@@ -1,3 +1,14 @@
+# =============================================================================
+# Kavita - books and comics library
+#
+# Mode:  always-on
+# URL:   https://books.home
+# Data:  /srv/data/kavita/config (database)
+#        /srv/data/kavita/books (read-only)
+# Notes: linuxserver image: config must be mounted at /config
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 # Medium resources for Kavita book server
 # Anchors copied from ../resource-limits.yaml (only referenced)
 

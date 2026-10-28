@@ -1,3 +1,14 @@
+# =============================================================================
+# Yubal - downloads YouTube Music playlists into the music library
+#
+# Mode:  on-demand (start/stop from Portainer; stays off after reboot)
+# URL:   https://yubal.home
+# Data:  /srv/docker/volumes/yubal (config)
+#        /srv/data/media/music (read-write)
+# Notes: Scheduler runs daily at 00:00 UTC while the stack is running
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 # Anchors copied from ../resource-limits.yaml (only referenced)
 
 # Resource size anchors

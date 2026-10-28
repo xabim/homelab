@@ -1,3 +1,14 @@
+# =============================================================================
+# MusicBrainz Picard - music tagger (web VNC interface)
+#
+# Mode:  on-demand (start/stop from Portainer; stays off after reboot)
+# URL:   https://picard.home
+# Data:  /srv/docker/volumes/musicbrainz-picard/config
+#        /srv/data/media/music (read-write)
+# Notes: Stop when done: it has write access to the music library
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 services:
   # MusicBrainz Picard: music tagger with VNC interface
   # Note: manual start only (no auto-restart)

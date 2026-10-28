@@ -1,3 +1,13 @@
+# =============================================================================
+# Podsync - turns YouTube channels into podcast feeds
+#
+# Mode:  always-on
+# URL:   https://podsync.home
+# Data:  /srv/data/podsync/data (episodes)
+#        /srv/docker/volumes/podsync/{db,config.toml}
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 # Anchors copied from ../resource-limits.yaml (only referenced)
 
 # Resource size anchors

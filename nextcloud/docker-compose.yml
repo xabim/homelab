@@ -1,3 +1,15 @@
+# =============================================================================
+# Nextcloud + ONLYOFFICE - files, calendar, contacts, office
+#
+# Mode:  always-on
+# URL:   https://cloud.home, https://office.home
+# Data:  /srv/data/nextcloud (user files)
+#        /srv/docker/volumes/{nextcloud,onlyoffice}/*
+# Notes: Enable maintenance mode before redeploys (all 5 containers are recreated)
+#        PostgreSQL: pg_dump before upgrades
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 name: nextcloud
 
 # Anchors copied from ../resource-limits.yaml (only referenced)

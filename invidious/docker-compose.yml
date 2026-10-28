@@ -1,3 +1,14 @@
+# =============================================================================
+# Invidious - private YouTube frontend
+#
+# Mode:  always-on
+# URL:   https://invidious.home
+# Data:  /srv/docker/volumes/invidious/{postgres,companioncache}
+# Notes: Secrets POSTGRES_PASSWORD, SERVER_SECRET_KEY, HMAC_KEY are Portainer stack
+#        variables (used in INVIDIOUS_CONFIG); resend them on API redeploys
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 # Anchors copied from ../resource-limits.yaml (only referenced)
 
 # Resource size anchors

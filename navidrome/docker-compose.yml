@@ -1,3 +1,13 @@
+# =============================================================================
+# Navidrome - music streaming server (Subsonic-compatible)
+#
+# Mode:  on-demand (start/stop from Portainer; stays off after reboot)
+# URL:   https://music.home
+# Data:  /srv/docker/volumes/navidrome/data (database)
+#        /srv/data/media/music (read-only)
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 # Anchors copied from ../resource-limits.yaml (only referenced)
 
 # Resource size anchors

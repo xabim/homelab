@@ -1,3 +1,14 @@
+# =============================================================================
+# Paperless-ngx - document management with OCR
+#
+# Mode:  always-on
+# URL:   https://paperless.home
+# Data:  /srv/data/paperless/{media,consume,export}
+#        /srv/docker/volumes/paperless/{postgres,redis,data}
+# Notes: PostgreSQL: pg_dump before upgrades
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 # Anchors copied from ../resource-limits.yaml (only referenced)
 
 # Resource size anchors

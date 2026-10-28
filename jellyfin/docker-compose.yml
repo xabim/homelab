@@ -1,3 +1,14 @@
+# =============================================================================
+# Jellyfin - movies and TV streaming
+#
+# Mode:  on-demand (start/stop from Portainer; stays off after reboot)
+# URL:   https://jellyfin.home
+# Data:  /srv/docker/volumes/jellyfin/{config,cache}
+#        /srv/data/media/{movies,tvshows,music} (read-only)
+# Notes: Hardware transcoding via /dev/dri
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main)
+# =============================================================================
+
 # Anchors copied from ../resource-limits.yaml (only referenced)
 
 # Resource size anchors
