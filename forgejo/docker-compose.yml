@@ -35,7 +35,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/forgejo/.env.secrets
     volumes:
       - ${FORGEJO_DATA_DIR}:/data
     networks:
@@ -64,7 +64,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/forgejo/.env.secrets
     volumes:
       - ${FORGEJO_DB_VOL}:/var/lib/postgresql
     networks:

@@ -20,7 +20,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/jellyfin/.env.secrets
     volumes:
       - ${JELLYFIN_CONFIG_VOL}:/config
       - ${JELLYFIN_CACHE_VOL}:/cache

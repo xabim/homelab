@@ -35,7 +35,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/invidious/.env.secrets
     environment:
       INVIDIOUS_CONFIG: |
         db:
@@ -78,7 +78,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/invidious/.env.secrets
     command: ["/tini", "--", "/app/invidious_companion"]
     volumes:
       - ${INVIDIOUS_COMPANION_CACHE}:/var/tmp/youtubei.js:rw
@@ -100,12 +100,12 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/invidious/.env.secrets
     volumes:
       - ${INVIDIOUS_PG_DATA}:/var/lib/postgresql/data
       # Mount Invidious schema and init script
-      - ./db-init/sql:/config/sql:ro
-      - ./db-init/init-invidious-db.sh:/docker-entrypoint-initdb.d/init-invidious-db.sh:ro
+      - /srv/docker/stacks/invidious/db-init/sql:/config/sql:ro
+      - /srv/docker/stacks/invidious/db-init/init-invidious-db.sh:/docker-entrypoint-initdb.d/init-invidious-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 30s

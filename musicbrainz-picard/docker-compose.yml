@@ -6,7 +6,7 @@ services:
     env_file:
       - ../.env.global
       - .env
-      - .env.secrets
+      - /srv/docker/stacks/musicbrainz-picard/.env.secrets
     ports:
       # VNC web interface (local access only)
       - "5800:5800"
