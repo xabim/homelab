@@ -36,10 +36,10 @@ Then run the quick checks in [11 · Health check](11-health-check.md#quick-check
 ## Shutdown overnight / Wake-on-LAN
 
 * `sudo systemctl poweroff` — same behaviour as a reboot on the next start.
-* Wake-on-LAN: send a magic packet to `34:5a:60:d4:31:34` (interface `enp2s0`), e.g.
-  `wakeonlan 34:5a:60:d4:31:34` from another machine. WoL must be enabled in the BIOS and on the
+* Wake-on-LAN: send a magic packet to the server's MAC (`ip link show enp2s0`), e.g.
+  `wakeonlan <server-mac>` from another machine. WoL must be enabled in the BIOS and on the
   NIC (`ethtool -s enp2s0 wol g`, persisted via a systemd-networkd/udev rule).
-* DNS keeps working while the server is off — Pi-hole runs on `192.168.1.100`.
+* DNS keeps working while the server is off — Pi-hole runs on a separate device.
 
 ## If something doesn't come back
 

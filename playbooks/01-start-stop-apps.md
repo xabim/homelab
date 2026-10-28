@@ -6,7 +6,7 @@ Picard, Yubal, Homepage) or free resources by stopping one.
 
 ## From the phone (normal way)
 
-1. Open **https://portainer.home** (or `https://192.168.1.101:9001` if DNS is down).
+1. Open **https://portainer.home** (or `https://<host-ip>:9001` if DNS is down).
 2. **Stacks** → tap the stack.
 3. **Start this stack** / **Stop this stack**.
 

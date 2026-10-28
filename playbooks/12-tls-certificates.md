@@ -29,7 +29,7 @@ CA="--cacert $CA_CRT"
 **Get the file** (and check it's the right one):
 
 ```bash
-curl -sk https://192.168.1.101:9000/roots.pem -o homelab-root-ca.crt     # or copy $CA_CRT
+curl -sk https://ca.home:9000/roots.pem -o homelab-root-ca.crt     # or copy $CA_CRT
 openssl x509 -in homelab-root-ca.crt -noout -subject -fingerprint -sha256
 # subject=O=marxa CA, CN=marxa CA Root CA
 # SHA256 Fingerprint=C2:78:1A:B3:59:3C:4F:0F:13:80:94:05:54:F3:EE:7C:7B:20:7F:5A:AF:E5:FD:31:02:5E:F7:75:00:6A:11:CB
@@ -54,7 +54,7 @@ openssl x509 -in homelab-root-ca.crt -noout -subject -fingerprint -sha256
 
 ```bash
 h=cloud.home
-echo | openssl s_client -connect 192.168.1.101:443 -servername $h -showcerts 2>/dev/null \
+echo | openssl s_client -connect localhost:443 -servername $h -showcerts 2>/dev/null \
   | openssl x509 -noout -subject -issuer -startdate -enddate -ext subjectAltName
 curl -sv $CA https://$h/ -o /dev/null 2>&1 | grep -E 'SSL certificate verify|subject:|issuer:|expire'
 ```
@@ -66,7 +66,7 @@ Quick sweep:
 
 ```bash
 for h in portainer cloud office paperless podsync invidious; do
-  printf '%-12s ' $h; echo | openssl s_client -connect 192.168.1.101:443 -servername $h.home 2>/dev/null \
+  printf '%-12s ' $h; echo | openssl s_client -connect localhost:443 -servername $h.home 2>/dev/null \
   | openssl x509 -noout -enddate -issuer | tr '\n' ' '; echo; done
 ```
 
@@ -93,7 +93,7 @@ Hostnames here that no router uses anymore are stale → task 9.
 
 ## 4. Add a hostname
 
-1. **DNS first:** Pi-hole → *Local DNS → DNS Records* → `<app>.home` → `192.168.1.101`.
+1. **DNS first:** Pi-hole → *Local DNS → DNS Records* → `<app>.home` → host IP.
    Check from the host *and* from step-ca:
    ```bash
    getent hosts <app>.home
@@ -123,7 +123,7 @@ docker logs --since 1h step-ca 2>&1 | grep -iE 'error|challenge' | tail -20
 | `unable to obtain ACME certificate` right after creating a router | DNS propagation / typo in `Host()` | Fix, then Traefik retries on its own |
 | Site serves `TRAEFIK DEFAULT CERT` | Router missing `tls.certresolver=stepca`, or issuance failed | Labels + errors above |
 | Browser warning but `curl $CA` works | The device doesn't trust the root | Task 1 |
-| Warning only on `https://192.168.1.101:900x` | Expected: no hostname → default cert | Use the `*.home` name |
+| Warning only on `https://<host-ip>:900x` | Expected: no hostname → default cert | Use the `*.home` name |
 
 ---
 

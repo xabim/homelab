@@ -9,7 +9,7 @@ with real TLS on every service and resource limits on every container.
 ![Debian](https://img.shields.io/badge/Debian-13-A81D33?logo=debian&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker_Compose-v2-2496ED?logo=docker&logoColor=white)
 ![Portainer](https://img.shields.io/badge/Portainer_CE-2.45-13BEF9?logo=portainer&logoColor=white)
-![Traefik](https://img.shields.io/badge/Traefik-v3.6-24A1C1?logo=traefikproxy&logoColor=white)
+![Traefik](https://img.shields.io/badge/Traefik-v3.7-24A1C1?logo=traefikproxy&logoColor=white)
 ![step-ca](https://img.shields.io/badge/PKI-step--ca-EB6100?logo=letsencrypt&logoColor=white)
 ![ZFS](https://img.shields.io/badge/Storage-ZFS_mirror-2A6DB0)
 ![Stacks](https://img.shields.io/badge/stacks-16-brightgreen)
@@ -44,10 +44,10 @@ with real TLS on every service and resource limits on every container.
 
 | | |
 |---|---|
-| 🖥️ **Host** | Intel i5-12400 · 16 GB RAM · NVMe (OS, configs, databases) · ZFS mirror 2×4 TB (`tank/data` → `/srv/data`) |
+| 🖥️ **Host** | A single Debian box · NVMe for OS, configs and databases · ZFS mirror for bulk data (`/srv/data`) |
 | 📦 **Stacks** | 12 app stacks managed by **Portainer** (from this repo on GitHub) + 4 infrastructure stacks managed by CLI |
 | 🔐 **TLS** | Internal CA (**step-ca**) issues 30-day certificates to **Traefik** over ACME — every `*.home` URL is real HTTPS · [deep dive](docs/tls.md) |
-| 🌐 **DNS** | **Pi-hole** on a separate device (`192.168.1.100`) resolves `*.home` → `192.168.1.101` |
+| 🌐 **DNS** | **Pi-hole** on a separate device resolves `*.home` → the host |
 | 📱 **Ops** | Start/stop/logs/restart from a phone at `https://portainer.home` |
 | 📖 **Runbooks** | Everything operational lives in [`playbooks/`](playbooks/README.md) |
 
@@ -58,10 +58,10 @@ with real TLS on every service and resource limits on every container.
 ```mermaid
 flowchart LR
     user(["📱 Phone / 💻 Laptop"])
-    pihole["Pi-hole<br/>192.168.1.100<br/><i>*.home → .101</i>"]
+    pihole["Pi-hole<br/><i>*.home → host</i>"]
     github[("GitHub<br/>xabim/homelab")]
 
-    subgraph host["Debian host · 192.168.1.101"]
+    subgraph host["Debian host"]
         direction LR
         traefik["Traefik<br/>:443 + :900x"]
         stepca["step-ca<br/>ACME CA"]
@@ -100,22 +100,22 @@ flowchart LR
 
 | Service | URL | Mode | Stack | Direct IP fallback |
 |---|---|---|---|---|
-| 🎬 Jellyfin | https://jellyfin.home | on-demand | `jellyfin` | `:9002` |
-| 🎵 Navidrome | https://music.home | on-demand | `navidrome` | — |
-| 📺 Invidious | https://invidious.home | always-on | `invidious` | `:9005` |
-| 🎙️ Podsync | https://podsync.home | always-on | `podsync` | `:9010` |
-| ☁️ Nextcloud + ONLYOFFICE | https://cloud.home · https://office.home | always-on | `nextcloud` | — (hard-redirects to its domain) |
-| 📸 Immich | https://immich.home | on-demand | `immich` | `:9008` |
-| 📄 Paperless-ngx | https://paperless.home | always-on | `paperless` | `:9006` |
-| 📚 Kavita | https://books.home | on-demand | `kavita` | — |
-| 🦊 Forgejo | https://forgejo.home | on-demand | `forgejo` | — |
-| 🏷️ MusicBrainz Picard | https://picard.home | on-demand | `musicbrainz-picard` | — |
-| 🎧 Yubal | https://yubal.home | on-demand | `yubal` | — |
-| 🧭 Homepage | https://homepage.home | on-demand | `homepage` | `:9003` |
-| 🐳 Portainer | https://portainer.home | infra | `portainer` (CLI) | `:9001` |
-| 🚦 Traefik dashboard | — (no DNS record) | infra | `traefik` (CLI) | `:9004` |
-| 🔏 step-ca | https://ca.home:9000 | infra | `step-ca` (CLI) | `:9000` |
-| 🛡️ Pi-hole | https://192.168.1.100/admin | external | — (other device) | — |
+| 🎬 [Jellyfin](https://jellyfin.org) | https://jellyfin.home | on-demand | `jellyfin` | `:9002` |
+| 🎵 [Navidrome](https://www.navidrome.org) | https://music.home | on-demand | `navidrome` | — |
+| 📺 [Invidious](https://invidious.io) | https://invidious.home | always-on | `invidious` | `:9005` |
+| 🎙️ [Podsync](https://github.com/mxpv/podsync) | https://podsync.home | always-on | `podsync` | `:9010` |
+| ☁️ [Nextcloud](https://nextcloud.com) + [ONLYOFFICE](https://www.onlyoffice.com) | https://cloud.home · https://office.home | always-on | `nextcloud` | — (hard-redirects to its domain) |
+| 📸 [Immich](https://immich.app) | https://immich.home | on-demand | `immich` | `:9008` |
+| 📄 [Paperless-ngx](https://docs.paperless-ngx.com) | https://paperless.home | always-on | `paperless` | `:9006` |
+| 📚 [Kavita](https://www.kavitareader.com) | https://books.home | on-demand | `kavita` | — |
+| 🦊 [Forgejo](https://forgejo.org) | https://forgejo.home | on-demand | `forgejo` | — |
+| 🏷️ [MusicBrainz Picard](https://picard.musicbrainz.org) | https://picard.home | on-demand | `musicbrainz-picard` | — |
+| 🎧 [Yubal](https://github.com/guillevc/yubal) | https://yubal.home | on-demand | `yubal` | — |
+| 🧭 [Homepage](https://gethomepage.dev) | https://homepage.home | on-demand | `homepage` | `:9003` |
+| 🐳 [Portainer](https://www.portainer.io) | https://portainer.home | infra | `portainer` (CLI) | `:9001` |
+| 🚦 [Traefik](https://traefik.io/traefik/) dashboard | — (no DNS record) | infra | `traefik` (CLI) | `:9004` |
+| 🔏 [step-ca](https://smallstep.com/docs/step-ca/) | https://ca.home:9000 | infra | `step-ca` (CLI) | `:9000` |
+| 🛡️ [Pi-hole](https://pi-hole.net) | on its own IP, `/admin` | external | — (other device) | — |
 
 > Every app compose file starts with a header (purpose, mode, URL, data, notes) —
 > visible in Portainer under **Stacks → *app* → Editor**.
@@ -200,7 +200,7 @@ flowchart LR
         inter --- acme
     end
     traefik["🚦 Traefik<br/>ACME client<br/><code>acme-stepca.json</code>"]
-    pihole["Pi-hole<br/>*.home → .101"]
+    pihole["Pi-hole<br/>*.home → host"]
     device["💻📱 Devices<br/>trust the root"]
 
     traefik -- "1 · order cert for app.home" --> acme
@@ -228,7 +228,7 @@ flowchart LR
 ## 🌐 Networking & DNS
 
 ```text
- client ──DNS──► Pi-hole (192.168.1.100): *.home → 192.168.1.101
+ client ──DNS──► Pi-hole: *.home → host IP
  client ──443──► Traefik ──(Host rule from container labels)──► app container
 ```
 
@@ -285,7 +285,7 @@ services:
 ```
 
 Under memory pressure the kernel sacrifices apps first and keeps routing, TLS and databases alive.
-A 15.7 GB swap partition gives it room to breathe before that.
+A swap partition gives it room to breathe before that.
 
 **Forbidden:** `deploy.resources` (Swarm-only, silently ignored) · containers without limits ·
 mounting the Docker socket in apps (Portainer excepted) · anonymous volumes for data that matters.
@@ -331,7 +331,7 @@ so in a comment.
 - [ ] Data in `/srv/docker/volumes/<app>` (config/DB) or `/srv/data/<app>` (bulk) — absolute bind mounts
 - [ ] Secrets in `<app>/.env.secrets` (mode 600), referenced by absolute path
 - [ ] Traefik labels with `certresolver=stepca` and `<app>.home`
-- [ ] Pi-hole DNS record `<app>.home → 192.168.1.101`
+- [ ] Pi-hole DNS record `<app>.home` → host IP
 - [ ] `security_opt: no-new-privileges`, `cap_drop: ALL` (or a comment saying why not)
 - [ ] Healthcheck, `restart: unless-stopped`, no unnecessary published ports
 - [ ] Deployed as a Portainer Git stack; tile added to Homepage

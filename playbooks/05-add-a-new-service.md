@@ -50,7 +50,7 @@ git -C /srv/docker/stacks status --short     # .env.secrets must NOT appear
 
 ## 4. DNS
 
-Pi-hole (`https://192.168.1.100/admin`) → **Local DNS → DNS Records** → `<app>.home` → `192.168.1.101`.
+Pi-hole (`https://<pihole-ip>/admin`) → **Local DNS → DNS Records** → `<app>.home` → `<host-ip>`.
 
 ## 5. Commit, push, deploy
 

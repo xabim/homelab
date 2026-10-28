@@ -16,7 +16,7 @@ the same protocol Let's Encrypt uses, but against our own CA: **step-ca**.
 |---|---|---|
 | **step-ca** (`smallstep/step-ca`) | stack `step-ca`, data in `/srv/docker/volumes/step-ca` | The Certificate Authority. Holds the root + intermediate keys, exposes an ACME server at `https://ca.home:9000` |
 | **Traefik v3** | stack `traefik`, config in `/srv/docker/volumes/traefik` | Reverse proxy. ACME **client**: requests, stores and renews a certificate per hostname, terminates TLS |
-| **Pi-hole** | `192.168.1.100` (separate device) | DNS. Resolves `*.home` → `192.168.1.101` for clients **and for step-ca itself** during validation |
+| **Pi-hole** | separate device on the LAN | DNS. Resolves `*.home` → the host's IP for clients **and for step-ca itself** during validation |
 | **Root certificate** `root_ca.crt` | `/srv/docker/volumes/step-ca/certs/` | The public anchor every client must trust |
 
 ---
@@ -57,7 +57,7 @@ sequenceDiagram
     autonumber
     participant T as Traefik<br/>(ACME client)
     participant S as step-ca<br/>ca.home:9000
-    participant D as Pi-hole<br/>192.168.1.100
+    participant D as Pi-hole
     participant W as Traefik :80<br/>(web entrypoint)
 
     Note over T: new router with tls.certresolver=stepca<br/>for Host(`app.home`) — or renewal due
@@ -65,7 +65,7 @@ sequenceDiagram
     S-->>T: HTTP-01 challenge: serve token at /.well-known/acme-challenge/…
     T->>W: publish token on the :80 entrypoint
     S->>D: resolve app.home
-    D-->>S: 192.168.1.101
+    D-->>S: host IP
     S->>W: GET http://app.home/.well-known/acme-challenge/<token>
     W-->>S: token ✔
     T->>S: finalize (CSR)
@@ -76,7 +76,7 @@ sequenceDiagram
 Key consequences:
 
 1. **The hostname must resolve in Pi-hole before it can get a certificate.** step-ca uses Docker's
-   embedded DNS (`127.0.0.11`), which forwards to the daemon's DNS server `192.168.1.100`.
+   embedded DNS (`127.0.0.11`), which forwards to the daemon's DNS server (Pi-hole).
 2. **Port 80 must reach Traefik** — that's the validation path. The `web` entrypoint otherwise
    redirects everything to HTTPS (the ACME challenge route is served before the redirect).
 3. **Traefik reaches step-ca by name** `ca.home`: step-ca carries the network alias `ca.home` on the
@@ -154,7 +154,7 @@ labels:
 
 The port-fallback entrypoints (`:9001`, `:9002`, …) match any host (`HostRegexp`). Accessed by IP
 there is no hostname to pick a certificate for, so Traefik serves its **default self-signed
-certificate** — expect a browser warning on `https://192.168.1.101:900x`. That's the price of the
+certificate** — expect a browser warning on `https://<host-ip>:900x`. That's the price of the
 DNS-free fallback; use the `*.home` names whenever DNS works.
 
 ---

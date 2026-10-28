@@ -10,11 +10,11 @@ Act as a senior SRE / homelab engineer, focused on clean, reproducible, and main
 
 **Debian 13**
 
-- Hardware: Intel i5-12400, 16 GB RAM
+- Hardware: a single desktop-class machine with limited RAM — size containers conservatively
 
 ## Storage
 
-**ZFS mirror (2×4 TB) on pool `tank`**
+**ZFS mirror on pool `tank`**
 
 - Main dataset mounted at `/srv/data`
 - External ext4 drive for incremental backups

@@ -35,7 +35,7 @@ df -h / /srv/data
 | Dangling volumes | `docker volume ls -qf dangling=true` | empty — **inspect before deleting**: `docker volume inspect <v>` |
 | Memory pressure | `docker stats --no-stream` | no container near its limit |
 | OOM kills | `docker ps -q \| xargs docker inspect -f '{{.Name}} {{.State.OOMKilled}}' \| grep true` | none |
-| Certificates | `echo \| openssl s_client -connect 192.168.1.101:443 -servername cloud.home 2>/dev/null \| openssl x509 -noout -enddate` | far from expiry (renewed automatically) |
+| Certificates | `echo \| openssl s_client -connect localhost:443 -servername cloud.home 2>/dev/null \| openssl x509 -noout -enddate` | far from expiry (renewed automatically) |
 | Git in sync | `git -C /srv/docker/stacks status -sb` | `## main...origin/main`, clean |
 | Portainer stacks | Portainer → Stacks | no unexpected "Limited" app stacks |
 | Backups | `ls -lt /srv/data/backups/` | a recent DB dump exists ([04](04-backup-and-restore.md)) |
