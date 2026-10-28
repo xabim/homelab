@@ -30,6 +30,7 @@ services:
     env_file:
       - ../.env.global
       - .env
+      - /srv/docker/stacks/homepage/.env.secrets
     volumes:
       - ${HOMEPAGE_CONFIG_VOL}:/app/config:rw
       # Mount custom CA certificate for HTTPS services
