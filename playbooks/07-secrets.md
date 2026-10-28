@@ -46,7 +46,8 @@ Change the value in **both** places:
 2. Portainer → Stacks → invidious → **Environment variables** → edit the value → redeploy the stack
 
 If you redeploy Invidious through the API, include all three variables in the `env` array —
-an empty array **wipes** them.
+an empty array **wipes** them. `scripts/portainer-stacks.py redeploy invidious` does this for you
+(it reads them from `invidious/.env.secrets`), so keep that file and Portainer in sync.
 
 ## Portainer API token
 

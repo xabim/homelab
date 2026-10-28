@@ -37,7 +37,7 @@ df -h / /srv/data
 | OOM kills | `docker ps -q \| xargs docker inspect -f '{{.Name}} {{.State.OOMKilled}}' \| grep true` | none |
 | Certificates | `echo \| openssl s_client -connect localhost:443 -servername cloud.home 2>/dev/null \| openssl x509 -noout -enddate` | far from expiry (renewed automatically) |
 | Git in sync | `git -C /srv/docker/stacks status -sb` | `## main...origin/main`, clean |
-| Portainer stacks | Portainer → Stacks | no unexpected "Limited" app stacks |
+| Portainer stacks | Portainer → Stacks · `scripts/portainer-stacks.py plan` | no unexpected "Limited" app stacks; plan shows no `+`, `~` or `?` lines |
 | Backups | `ls -lt /srv/data/backups/` | a recent DB dump exists ([04](04-backup-and-restore.md)) |
 | Updates waiting | Portainer / app UIs "new version" banners | plan with [03](03-update-images.md) |
 

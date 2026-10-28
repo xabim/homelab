@@ -92,7 +92,7 @@ flowchart LR
 | Layer | Stacks | Managed by | Why |
 |---|---|---|---|
 | **Infrastructure** | `traefik`, `step-ca`, `docker-socket-proxy`, `portainer` | `docker compose` (CLI, from this directory) | Routing and TLS must never depend on Portainer or GitHub being reachable. Portainer must not manage itself. |
-| **Applications** | everything else | **Portainer Git stacks** (`main` branch, auto-update **off**) | One-tap start/stop from a phone; Git is the single source of truth. |
+| **Applications** | everything else | **Portainer Git stacks** (`main` branch, auto-update **off**), listed in [`stacks.toml`](stacks.toml) | One-tap start/stop from a phone; Git is the single source of truth — including which stacks exist. |
 
 ---
 
@@ -158,6 +158,8 @@ sequenceDiagram
 ├── playbooks/                      ← operational runbooks
 ├── .env.global                     ← TZ, PUID/PGID, base paths (shared by all stacks)
 ├── resource-limits.yaml            ← reference copy of the resource anchors
+├── stacks.toml                     ← the Portainer Git stacks and their mode (always-on / on-demand)
+├── scripts/portainer-stacks.py     ← plan / apply / redeploy those stacks via the Portainer API
 ├── docker-compose.{traefik,db,socket}.yml   ← snippet templates for new services
 ├── prompt.md                       ← AI-assistant prompt for adding services
 └── <stack>/
@@ -334,7 +336,7 @@ so in a comment.
 - [ ] Pi-hole DNS record `<app>.home` → host IP
 - [ ] `security_opt: no-new-privileges`, `cap_drop: ALL` (or a comment saying why not)
 - [ ] Healthcheck, `restart: unless-stopped`, no unnecessary published ports
-- [ ] Deployed as a Portainer Git stack; tile added to Homepage
+- [ ] Listed in `stacks.toml`, created with `scripts/portainer-stacks.py apply`; tile added to Homepage
 
 👉 [`playbooks/05-add-a-new-service.md`](playbooks/05-add-a-new-service.md) · templates:
 [`docker-compose.traefik.yml`](docker-compose.traefik.yml),

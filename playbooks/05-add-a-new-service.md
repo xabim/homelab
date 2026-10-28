@@ -38,7 +38,7 @@ Rules (Portainer CE compatibility):
 * If the image declares `VOLUME`s (`docker image inspect -f '{{json .Config.Volumes}}' <image>`),
   bind every one that holds state — otherwise Stop/Start throws that state away
 * `${VAR}` inside `environment:` is interpolated from `.env` only — **not** from `.env.secrets`.
-  If a secret must be interpolated, use a Portainer stack variable (see Invidious)
+  If a secret must be interpolated, use a Portainer stack variable (see Invidious in `stacks.toml`)
 * Networks: `proxy` (external) for Traefik; a private network for app ↔ DB
 
 ## 3. Validate
@@ -54,11 +54,16 @@ Pi-hole (`https://<pihole-ip>/admin`) → **Local DNS → DNS Records** → `<ap
 
 ## 5. Commit, push, deploy
 
+Add the stack to [`stacks.toml`](../stacks.toml) (`mode = "always-on"` or `"on-demand"`;
+`env_from`/`env` only if it needs stack variables), then:
+
 ```bash
-git add <app>/ && git commit -m "feat(<app>): add new service" && git push
+git add <app>/ stacks.toml && git commit -m "feat(<app>): add new service" && git push
+scripts/portainer-stacks.py plan     # shows "+ <app> create"
+scripts/portainer-stacks.py apply    # creates it; on-demand stacks are stopped right after
 ```
 
-Portainer → **Stacks → Add stack**:
+Or by hand — Portainer → **Stacks → Add stack**:
 
 * Name: **`<app>`** (= directory name = Compose project name)
 * Build method: **Repository** → `https://github.com/xabim/homelab`, reference `refs/heads/main`,

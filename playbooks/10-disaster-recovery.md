@@ -20,14 +20,18 @@ docker compose up -d
 ```
 
 1. Open `https://portainer.home` **within 5 minutes**, create the admin user, choose *Get started* (local socket).
-2. Existing projects now show as *Limited*. Re-adopt each app stack, one at a time:
+2. Create an API token and store it in `~/.config/portainer-api.hdr` ([07](07-secrets.md#portainer-api-token)).
+3. Existing projects now show as *Limited*. Take down the ones still running (data is in bind mounts):
    ```bash
-   # stack running → take it down first (data is in bind mounts)
    cd /srv/docker/stacks/<app> && docker compose down       # NEVER -v
    ```
-   then Stacks → Add stack → Repository (same settings as [05](05-add-a-new-service.md#5-commit-push-deploy)).
-3. **Invidious:** re-add its 3 stack variables from `invidious/.env.secrets`.
-4. Stop the on-demand stacks again. Create a new API token if you use one.
+4. Re-create every app stack from [`stacks.toml`](../stacks.toml):
+   ```bash
+   cd /srv/docker/stacks
+   scripts/portainer-stacks.py plan          # every stack shows "+ create"
+   scripts/portainer-stacks.py apply --yes   # always-on start; on-demand are stopped again
+   ```
+   Invidious' stack variables are read from `invidious/.env.secrets` automatically.
 
 ## Run an app without Portainer
 
@@ -53,7 +57,7 @@ Order matters:
    ```bash
    for s in docker-socket-proxy step-ca traefik portainer; do (cd /srv/docker/stacks/$s && docker compose up -d); done
    ```
-7. App stacks via Portainer (scenario B, step 2 onwards).
+7. App stacks via Portainer (scenario B, step 1 onwards).
 8. Clients keep trusting the old root CA only if step-ca's data was restored — otherwise
    reinstall the new `root_ca.crt` everywhere.
 

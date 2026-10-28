@@ -1,0 +1,53 @@
+# =============================================================================
+# Portainer Git stacks — the list of app stacks Portainer should have
+#
+# Applied by scripts/portainer-stacks.py (plan / apply / redeploy).
+# Each stack deploys <name>/docker-compose.yml from the repo below.
+#
+# mode: always-on  -> running; starts again after a reboot
+#       on-demand  -> created stopped; start/stop from Portainer
+# `apply` only creates missing stacks; it never deletes or restarts existing ones.
+# =============================================================================
+
+repository = "https://github.com/xabim/homelab"
+branch = "refs/heads/main"
+
+[stacks.nextcloud]
+mode = "always-on"
+
+[stacks.paperless]
+mode = "always-on"
+
+[stacks.podsync]
+mode = "always-on"
+
+[stacks.invidious]
+mode = "always-on"
+# INVIDIOUS_CONFIG interpolates these, so they must be Portainer stack variables.
+# Values are read from this file on the host (never from the repo).
+env_from = "invidious/.env.secrets"
+env = ["POSTGRES_PASSWORD", "SERVER_SECRET_KEY", "HMAC_KEY"]
+
+[stacks.immich]
+mode = "on-demand"
+
+[stacks.jellyfin]
+mode = "on-demand"
+
+[stacks.navidrome]
+mode = "on-demand"
+
+[stacks.kavita]
+mode = "on-demand"
+
+[stacks.forgejo]
+mode = "on-demand"
+
+[stacks.musicbrainz-picard]
+mode = "on-demand"
+
+[stacks.yubal]
+mode = "on-demand"
+
+[stacks.homepage]
+mode = "on-demand"
