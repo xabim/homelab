@@ -34,10 +34,9 @@ services:
       - "9001:9001"  # Portainer
       - "9002:9002"  # Jellyfin
       - "9003:9003"  # Homepage
-      - "9004:9004"  # Pi-hole
+      - "9004:9004"  # Traefik dashboard
       - "9005:9005"  # Invidious
       - "9006:9006"  # Paperless
-      - "9007:9007"  # Uptime-kuma
       - "9008:9008"  # Immich
       - "9010:9010"  # Podsync
     volumes:
