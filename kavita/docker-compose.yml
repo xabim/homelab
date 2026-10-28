@@ -23,7 +23,7 @@ services:
       - .env
       - .env.secrets
     volumes:
-      - ${KAVITA_CONFIG_DIR}:/kavita/config
+      - ${KAVITA_CONFIG_DIR}:/config
       - ${KAVITA_BOOKS_DIR}:/books:ro
     networks:
       - proxy
