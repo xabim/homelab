@@ -47,7 +47,7 @@ git revert HEAD && git push        # then Pull and redeploy again
 | Stack | Gotcha |
 |---|---|
 | `invidious` | Its 3 secrets are **Portainer stack variables**. The UI keeps them; an **API** redeploy must resend them or they are wiped. |
-| `immich` | Image tag is `release` → a redeploy with *Re-pull image* **upgrades Immich**. |
+| `immich` | `IMMICH_VERSION=v2` → *Re-pull image* updates within v2 only. v3 = change the tag + follow Immich's migration notes. |
 | `nextcloud` | Always use maintenance mode; all 5 containers restart. |
 | stopped on-demand stacks | Redeploying **starts** them — stop again afterwards if you don't need them. |
 | `.env.secrets` path | Must be absolute (`/srv/docker/stacks/<app>/.env.secrets`) — Portainer's clone doesn't contain gitignored files. |
