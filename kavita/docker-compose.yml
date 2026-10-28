@@ -1,7 +1,7 @@
 # =============================================================================
 # Kavita - books and comics library
 #
-# Mode:  always-on
+# Mode:  on-demand (start/stop from Portainer; stays off after reboot)
 # URL:   https://books.home
 # Data:  /srv/data/kavita/config (database)
 #        /srv/data/kavita/books (read-only)

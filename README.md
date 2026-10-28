@@ -1,511 +1,305 @@
-# Homelab Docker Baseline (SRE-style)
+<div align="center">
 
-A homelab built with an **SRE / platform-first** philosophy:
-**stable**, **predictable**, **reproducible**, and **easy to maintain** infrastructure.
+# 🏠 Homelab
 
-The primary goal is to **prevent global host failures** (OOM, freezes, DNS outages)
-and **isolate problems at the service level**.
+**A small, boring-on-purpose home server.**
+Docker Compose stacks, managed from a phone with Portainer, deployed from Git,
+with real TLS on every service and resource limits on every container.
 
----
+`Debian 13` · `Docker + Compose` · `Portainer CE` · `Traefik v3` · `step-ca` · `ZFS mirror`
 
-## Table of Contents
-
-- [Core Principles](#-core-principles)
-- [Directory Structure](#-directory-structure)
-- [Resource Limits](#-resource-limits)
-- [Docker Compose Policy](#-docker-compose-policy)
-- [OOM Policy](#️-oom-policy)
-- [Swap Configuration](#-swap-configuration)
-- [Networking, DNS & TLS](#-networking-dns--tls)
-- [Traefik & step-ca Certificate Architecture](#-traefik--step-ca-certificate-architecture)
-- [Docker API Access](#-docker-api-access)
-- [Container Hardening](#-container-hardening)
-- [Observability](#-observability)
-- [ZFS Snapshots](#-zfs-snapshots)
-- [Compose Templates](#-compose-templates)
-- [Checklist for New Services](#-checklist-for-new-services)
-- [Adding a New Service (Walkthrough)](#-adding-a-new-service)
+</div>
 
 ---
 
-## 🧱 Core Principles
+> **Design goal:** a single app failure must never take down the host —
+> and turning an app on or off should take one tap.
 
-* **Every Docker service has real resource limits** (memory, CPU, PIDs)
-* **Nothing relies on hacks** (`/etc/hosts`, unnecessary open ports, etc.)
-* **Internal DNS and TLS are first-class citizens**
-* **Clear separation** between:
-  * stacks (`/srv/docker/stacks`) — compose files and configuration
-  * data (`/srv/docker/volumes`) — persistent volumes
-* **OOM Killer as a last resort**, not a scheduler
+## ✨ At a glance
+
+| | |
+|---|---|
+| 🖥️ **Host** | Intel i5-12400 · 16 GB RAM · NVMe (OS, configs, databases) · ZFS mirror 2×4 TB (`tank/data` → `/srv/data`) |
+| 📦 **Stacks** | 12 app stacks managed by **Portainer** (from this repo on GitHub) + 4 infrastructure stacks managed by CLI |
+| 🔐 **TLS** | Internal CA (**step-ca**) issues certificates to **Traefik** over ACME — every `*.home` URL is real HTTPS |
+| 🌐 **DNS** | **Pi-hole** on a separate device (`192.168.1.100`) resolves `*.home` → `192.168.1.101` |
+| 📱 **Ops** | Start/stop/logs/restart from a phone at `https://portainer.home` |
+| 📖 **Runbooks** | Everything operational lives in [`playbooks/`](playbooks/README.md) |
 
 ---
 
-## 📂 Directory Structure
+## 🧭 Architecture
+
+```mermaid
+flowchart LR
+    user(["📱 Phone / 💻 Laptop"])
+    pihole["Pi-hole<br/>192.168.1.100<br/><i>*.home → .101</i>"]
+    github[("GitHub<br/>xabim/homelab")]
+
+    subgraph host["Debian host · 192.168.1.101"]
+        direction LR
+        traefik["Traefik<br/>:443 + :900x"]
+        stepca["step-ca<br/>ACME CA"]
+        proxy["docker-socket-proxy<br/><i>read-only API</i>"]
+        portainer["Portainer CE"]
+        sock[["/var/run/docker.sock"]]
+
+        subgraph apps["Portainer Git stacks"]
+            direction TB
+            always["Always-on<br/>Nextcloud · Paperless<br/>Podsync · Invidious"]
+            ondemand["On-demand<br/>Immich · Jellyfin · Navidrome · Kavita<br/>Forgejo · Picard · Yubal · Homepage"]
+        end
+    end
+
+    user -- DNS --> pihole
+    user -- HTTPS --> traefik
+    traefik -- "certs (ACME)" --> stepca
+    traefik -- "labels (GET)" --> proxy
+    proxy --- sock
+    portainer -- "full API" --- sock
+    portainer -- "clone on deploy" --> github
+    traefik --> apps
+    traefik --> portainer
+```
+
+**Two kinds of stacks, on purpose:**
+
+| Layer | Stacks | Managed by | Why |
+|---|---|---|---|
+| **Infrastructure** | `traefik`, `step-ca`, `docker-socket-proxy`, `portainer` | `docker compose` (CLI, from this directory) | Routing and TLS must never depend on Portainer or GitHub being reachable. Portainer must not manage itself. |
+| **Applications** | everything else | **Portainer Git stacks** (`main` branch, auto-update **off**) | One-tap start/stop from a phone; Git is the single source of truth. |
+
+---
+
+## 📋 Service catalog
+
+| Service | URL | Mode | Stack | Direct IP fallback |
+|---|---|---|---|---|
+| 🎬 Jellyfin | https://jellyfin.home | on-demand | `jellyfin` | `:9002` |
+| 🎵 Navidrome | https://music.home | on-demand | `navidrome` | — |
+| 📺 Invidious | https://invidious.home | always-on | `invidious` | `:9005` |
+| 🎙️ Podsync | https://podsync.home | always-on | `podsync` | `:9010` |
+| ☁️ Nextcloud + ONLYOFFICE | https://cloud.home · https://office.home | always-on | `nextcloud` | — (hard-redirects to its domain) |
+| 📸 Immich | https://immich.home | on-demand | `immich` | `:9008` |
+| 📄 Paperless-ngx | https://paperless.home | always-on | `paperless` | `:9006` |
+| 📚 Kavita | https://books.home | on-demand | `kavita` | — |
+| 🦊 Forgejo | https://forgejo.home | on-demand | `forgejo` | — |
+| 🏷️ MusicBrainz Picard | https://picard.home | on-demand | `musicbrainz-picard` | — |
+| 🎧 Yubal | https://yubal.home | on-demand | `yubal` | — |
+| 🧭 Homepage | https://homepage.home | on-demand | `homepage` | `:9003` |
+| 🐳 Portainer | https://portainer.home | infra | `portainer` (CLI) | `:9001` |
+| 🚦 Traefik dashboard | — (no DNS record) | infra | `traefik` (CLI) | `:9004` |
+| 🔏 step-ca | https://ca.home:9000 | infra | `step-ca` (CLI) | `:9000` |
+| 🛡️ Pi-hole | https://192.168.1.100/admin | external | — (other device) | — |
+
+> Every app compose file starts with a header (purpose, mode, URL, data, notes) —
+> visible in Portainer under **Stacks → *app* → Editor**.
+
+---
+
+## 🔁 How a change reaches production
+
+```mermaid
+sequenceDiagram
+    participant You
+    participant Repo as /srv/docker/stacks (git)
+    participant GH as GitHub
+    participant P as Portainer
+    participant D as Docker
+
+    You->>Repo: edit <app>/docker-compose.yml
+    You->>Repo: docker compose config --quiet
+    You->>GH: git commit && git push
+    You->>P: Stacks → app → Pull and redeploy
+    P->>GH: fetch main
+    P->>D: compose up (recreates the stack's containers)
+```
+
+* **Start / Stop** use Portainer's local clone — they work even if GitHub is down.
+* **Stop** = `compose down`: containers and project networks are removed, bind-mounted data is untouched.
+  A stopped stack therefore **stays off after a reboot**.
+* **Pull and redeploy** recreates **all** containers of the stack, not just the changed ones.
+
+👉 Step by step: [`playbooks/02-deploy-a-change.md`](playbooks/02-deploy-a-change.md)
+
+---
+
+## 📂 Repository layout
 
 ```text
-/srv/docker/
-├── stacks/                         # One docker-compose.yml per service
-│   ├── resource-limits.yaml        # Central resource anchor reference
-│   ├── docker-compose.traefik.yml  # Template: simple Traefik service
-│   ├── docker-compose.db.yml       # Template: service + PostgreSQL
-│   ├── docker-compose.socket.yml   # Template: service needing Docker API
-│   ├── traefik/
-│   ├── step-ca/
-│   ├── docker-socket-proxy/
-│   ├── portainer/
-│   ├── homepage/
-│   ├── forgejo/
-│   ├── jellyfin/
-│   ├── immich/
-│   ├── invidious/
-│   ├── paperless/
-│   ├── podsync/
-│   ├── navidrome/
-│   ├── nextcloud/
-│   ├── kavita/
-│   └── musicbrainz-picard/
-│
-└── volumes/                        # Persistent data per service
-    ├── traefik/
-    ├── step-ca/
-    ├── forgejo/
-    ├── jellyfin/
-    ├── immich/
-    ├── paperless/
-    ├── homepage/
-    ├── portainer/
-    └── ...
+/srv/docker/stacks/                 ← this repo (github.com/xabim/homelab)
+├── README.md
+├── playbooks/                      ← operational runbooks
+├── .env.global                     ← TZ, PUID/PGID, base paths (shared by all stacks)
+├── resource-limits.yaml            ← reference copy of the resource anchors
+├── docker-compose.{traefik,db,socket}.yml   ← snippet templates for new services
+├── prompt.md                       ← AI-assistant prompt for adding services
+└── <stack>/
+    ├── docker-compose.yml          ← the stack (header comment explains it)
+    ├── .env                        ← non-secret variables (tracked — repo is public!)
+    └── .env.secrets                ← secrets, mode 600, gitignored
+
+/srv/docker/volumes/<app>/          ← configs + databases (NVMe, not in Git)
+/srv/data/<app>/                    ← bulk data: media, photos, files (ZFS mirror)
 ```
 
-Each stack directory contains:
-* `docker-compose.yml` — the service definition
-* `.env` — non-secret environment variables
-* `.env.secrets` — secrets (gitignored)
-
-A shared `../.env.global` file is loaded by all stacks for common variables (e.g. `TZ`, `PUID`, `PGID`).
+> ⚠️ **The GitHub repo is public.** `.env` files and compose files are world-readable;
+> anything secret goes in `.env.secrets` (gitignored) — never anywhere else.
 
 ---
 
-## 📐 Resource Limits
+## 🔐 Secrets
 
-All resource defaults are centrally defined in [`resource-limits.yaml`](resource-limits.yaml).
+* Every stack references its secrets by **absolute path**:
+  `- /srv/docker/stacks/<app>/.env.secrets`
+* Portainer has `/srv/docker/stacks` mounted **read-only at the same path**, so Git stacks
+  (which run from a clone without gitignored files) can still read them.
+* **Exception — Invidious:** its secrets are interpolated into `INVIDIOUS_CONFIG`, so they are
+  **Portainer stack variables** (`POSTGRES_PASSWORD`, `SERVER_SECRET_KEY`, `HMAC_KEY`).
 
-> **Important:** Docker Compose does not share YAML anchors between files
-> (not via `include:` nor `COMPOSE_FILE`). Each `docker-compose.yml` must
-> copy the required anchors locally.
-
-### Size Tiers
-
-| Tier     | Memory Limit | Memory Reservation | CPUs | PIDs Limit |
-|----------|-------------:|-------------------:|-----:|-----------:|
-| xsmall   | 128 MB       | 32 MB              | 0.25 | 128        |
-| small    | 256 MB       | 64 MB              | 0.5  | 256        |
-| medium   | 512 MB       | 128 MB             | 1.0  | 512        |
-| large    | 1 GB         | 256 MB             | 2.0  | 1024       |
-| xlarge   | 2 GB         | 512 MB             | 4.0  | 2048       |
-
-### Role Anchors
-
-Role anchors define `stop_grace_period` and `oom_score_adj` per service role:
-
-| Role     | Stop Grace Period | OOM Score Adj | Description                                  |
-|----------|------------------:|--------------:|----------------------------------------------|
-| core     | 60 s              | −400          | Infrastructure (Traefik, step-ca, DNS proxy)  |
-| cache    | 20 s              | −200          | Redis, in-memory caches                       |
-| db       | 60 s              | −100          | PostgreSQL, databases                         |
-| service  | 30 s              | +200          | Application services (web UIs, APIs)          |
-| worker   | 45 s              | +300          | Background workers, task queues               |
-| batch    | 120 s             | +500          | Long-running batch jobs                       |
-
-Usage in a compose file (anchors must be copied locally):
-
-```yaml
-x-resource-medium: &resource_medium
-  mem_limit: 512m
-  mem_reservation: 128m
-  cpus: 1.0
-  pids_limit: 512
-
-x-resource-service: &resource_service
-  stop_grace_period: 30s
-  oom_score_adj: 200
-
-services:
-  myapp:
-    image: my/image:tag
-    <<: [*resource_medium, *resource_service]
-```
-
----
-
-## 🧠 Docker Compose Policy
-
-### 🚫 Forbidden
-
-* `deploy.resources` — only works in Docker Swarm, silently ignored in Compose
-* Containers without resource limits
-* Mounting `/var/run/docker.sock` directly in application containers
-* Core services without OOM protection
-
-### ✅ Required on **every service**
-
-```yaml
-mem_limit: <hard limit>
-mem_reservation: <soft limit>
-cpus: <cpu limit>
-pids_limit: <pid limit>
-```
-
----
-
-## ☠️ OOM Policy
-
-The Linux OOM killer decides which process to terminate when memory is exhausted.
-`oom_score_adj` ranges from −1000 (never kill) to +1000 (kill first).
-
-### Core services (must survive longest)
-
-Traefik, step-ca, Pi-hole, docker-socket-proxy:
-
-```yaml
-oom_score_adj: -400
-```
-
-### Database services
-
-PostgreSQL, Redis:
-
-```yaml
-oom_score_adj: -100   # databases
-oom_score_adj: -200   # caches
-```
-
-### Application services (expendable)
-
-Invidious, Jellyfin, Podsync, Immich, Homepage, etc.:
-
-```yaml
-oom_score_adj: 200   # standard apps
-oom_score_adj: 300   # workers
-oom_score_adj: 500   # batch jobs
-```
-
-This teaches the kernel **which processes to sacrifice first** under memory pressure,
-keeping infrastructure alive while apps restart.
-
----
-
-## 🔁 Swap Configuration
-
-Even with plenty of RAM, swap is **mandatory in a homelab**:
-
-* Prevents hard freezes and soft lockups
-* Gives the kernel breathing room under transient spikes
-* Protects the host when a container leaks memory
-
-Recommended setup:
-
-```bash
-fallocate -l 8G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
-
-echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf
-sysctl -p /etc/sysctl.d/99-swappiness.conf
-```
-
-> `swappiness=10` keeps swap as a safety net rather than an active paging target.
+👉 [`playbooks/07-secrets.md`](playbooks/07-secrets.md)
 
 ---
 
 ## 🌐 Networking, DNS & TLS
 
-### DNS
+```text
+ client ──DNS──► Pi-hole (192.168.1.100): *.home → 192.168.1.101
+ client ──443──► Traefik ──(Host rule from container labels)──► app container
+                    │
+                    └── certificates via ACME from step-ca (ca.home:9000)
+```
 
-* **Pi-hole** serves as internal DNS resolver (`*.home`)
-* The host itself uses Pi-hole as its DNS server (consciously accepted dependency)
-* No `/etc/hosts` hacks are used anywhere
-* Pi-hole is designed to be migrated off the server in the future (e.g. to the router)
+* **Networks:** `proxy` (Traefik ↔ apps) and `dockersock` (socket proxy) are **external** —
+  created once by hand, never touched by stack operations. Each multi-container app also gets
+  its own private network (`immich_immich`, `nextcloud_internal`, `paperless_default`, …).
+* **Routing:** declared per service with Traefik labels — ``Host(`app.home`)``, `websecure`,
+  `certresolver=stepca`.
+* **Trusting the CA:** containers that call other `*.home` services mount
+  `/srv/docker/volumes/step-ca/certs/root_ca.crt` (or use `NODE_EXTRA_CA_CERTS` for Node apps).
+* **Port fallback:** Traefik publishes `:9001`–`:9006`, `:9008` and `:9010` for access by IP when DNS is down
+  (routers in `/srv/docker/volumes/traefik/dynamic/port-routing.yml`).
+* **New hostname?** Add it to Pi-hole — Traefik and step-ca do the rest.
 
-### TLS / PKI
+### Docker API access
 
-* Internal Certificate Authority: **step-ca** (Smallstep) deployed in Docker
-* Internal domain: `*.home`
-* Root CA certificate installed system-wide (`/usr/local/share/ca-certificates/`)
-* Traefik requests certificates from step-ca via ACME
+| Consumer | Access | Via |
+|---|---|---|
+| Traefik, Homepage | read-only (`GET`) | `tcp://docker-socket-proxy:2375` on `dockersock` |
+| Portainer | full (deploy, start/stop, exec) | `/var/run/docker.sock` mounted directly |
+
+Portainer is the **only** application allowed to mount the socket: it needs write access, and a
+write-enabled proxy would be equally powerful while exposing more to the other proxy clients.
 
 ---
 
-## 🔒 Traefik & step-ca Certificate Architecture
+## 📐 Resource limits & OOM policy
 
-This homelab uses a full **internal PKI** with automatic certificate issuance.
-Every service gets valid TLS certificates — no self-signed certs, no cert warnings.
+Every service has hard limits. Compose can't share YAML anchors across files, so each
+`docker-compose.yml` copies the anchors it needs from [`resource-limits.yaml`](resource-limits.yaml).
 
-### How It Works
+| Tier | Memory limit | Reservation | CPUs | PIDs |
+|---|---:|---:|---:|---:|
+| `xsmall` | 128 MB | 32 MB | 0.25 | 128 |
+| `small` | 256 MB | 64 MB | 0.5 | 256 |
+| `medium` | 512 MB | 128 MB | 1.0 | 512 |
+| `large` | 1 GB | 256 MB | 2.0 | 1024 |
+| `xlarge` | 2 GB | 512 MB | 4.0 | 2048 |
 
-```
-┌────────────┐      ACME (HTTP-01)       ┌────────────┐
-│   Traefik  │ ◄──────────────────────── │   step-ca  │
-│  (reverse  │   certificate request     │ (internal  │
-│   proxy)   │ ────────────────────────► │    CA)     │
-└─────┬──────┘                           └────────────┘
-      │  TLS termination                       │
-      │  for all *.home                        │
-      ▼                                        │
-┌────────────┐                           Root CA installed
-│  Services  │                           on host + containers
-│ (backends) │                           that need to verify
-└────────────┘                           internal TLS
-```
-
-### step-ca Configuration
-
-step-ca runs as a Docker container on the `proxy` network with a network alias `ca.home`:
+| Role | `oom_score_adj` | Stop grace | Used for |
+|---|---:|---:|---|
+| `core` | −400 | 60 s | Traefik, step-ca, socket proxy |
+| `cache` | −200 | 20 s | Redis |
+| `db` | −100 | 60 s | PostgreSQL |
+| `service` | +200 | 30 s | web apps |
+| `worker` | +300 | 45 s | background workers |
+| `batch` | +500 | 120 s | long batch jobs |
 
 ```yaml
 services:
-  step-ca:
-    image: smallstep/step-ca:latest
-    networks:
-      proxy:
-        aliases:
-          - ca.home   # Traefik reaches the CA at this address
-    ports:
-      - "9000:9000"   # ACME directory exposed for bootstrapping
-    volumes:
-      - /srv/docker/volumes/step-ca:/home/step
+  myapp:
+    <<: [*resource_medium, *resource_service]
 ```
 
-### Traefik ACME Resolver
+Under memory pressure the kernel sacrifices apps first and keeps routing, TLS and databases alive.
+A 15.7 GB swap partition gives it room to breathe before that.
 
-In Traefik's static configuration (`traefik.yml`), the ACME resolver points to step-ca:
-
-```yaml
-certificatesResolvers:
-  stepca:
-    acme:
-      caServer: https://ca.home:9000/acme/traefik-acme/directory
-      email: admin@home
-      storage: /certs/acme-stepca.json
-      httpChallenge:
-        entryPoint: web
-```
-
-Traefik also needs the root CA certificate mounted so it trusts step-ca's TLS:
-
-```yaml
-services:
-  traefik:
-    volumes:
-      - /path/to/root_ca.crt:/usr/local/share/ca-certificates/step-root-ca.crt:ro
-    command:
-      - sh
-      - -lc
-      - |
-        update-ca-certificates || true
-        traefik --configFile=/etc/traefik/traefik.yml
-```
-
-### How Services Get Certificates
-
-Each service uses Traefik labels to request a TLS certificate from step-ca automatically:
-
-```yaml
-labels:
-  - traefik.enable=true
-  - traefik.http.routers.myapp.rule=Host(`myapp.home`)
-  - traefik.http.routers.myapp.entrypoints=websecure
-  - traefik.http.routers.myapp.tls=true
-  - traefik.http.routers.myapp.tls.certresolver=stepca
-  - traefik.http.services.myapp.loadbalancer.server.port=8080
-```
-
-When Traefik sees these labels, it:
-1. Requests a certificate for `myapp.home` from step-ca via ACME
-2. Stores the certificate in `acme-stepca.json`
-3. Terminates TLS and proxies traffic to the backend on the specified port
-
-### Services That Need to Trust the Internal CA
-
-Some services make HTTPS calls to other internal services (e.g. Homepage calling
-Immich's API). These containers need the root CA certificate mounted:
-
-```yaml
-volumes:
-  - /path/to/root_ca.crt:/usr/local/share/ca-certificates/home-root-ca.crt:ro
-```
-
-Some applications use environment variables instead (e.g. Node.js apps like ONLYOFFICE):
-
-```yaml
-environment:
-  NODE_EXTRA_CA_CERTS: /usr/local/share/ca-certificates/home-root-ca.crt
-```
-
-### Port-Based Access (Fallback)
-
-In addition to DNS-based routing (`myapp.home`), Traefik exposes numbered ports as
-a fallback for direct IP access. Each port maps to a dedicated entrypoint:
-
-```yaml
-# In traefik.yml
-entryPoints:
-  portainer-port:
-    address: ":9001"
-    http:
-      tls:
-        certResolver: stepca
-```
-
-This allows accessing services via `https://<host-ip>:9001` when DNS is unavailable.
+**Forbidden:** `deploy.resources` (Swarm-only, silently ignored) · containers without limits ·
+mounting the Docker socket in apps (Portainer excepted) · anonymous volumes for data that matters.
 
 ---
 
-## 🔐 Docker API Access
-
-* **Never** mount `/var/run/docker.sock` directly in application containers
-* A **docker-socket-proxy** (Tecnativa) is used as a read-only gateway
-* Traefik and Portainer consume the Docker API via `tcp://docker-socket-proxy:2375`
-* The proxy container is the **only** one that mounts the Docker socket
+## 🛡️ Container hardening
 
 ```yaml
-# docker-socket-proxy/docker-compose.yml
-services:
-  docker-socket-proxy:
-    image: ghcr.io/tecnativa/docker-socket-proxy:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - dockersock
-    read_only: true
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+security_opt: [no-new-privileges:true]
+cap_drop: [ALL]
+cap_add: [<only what the image needs>]
+read_only: true          # where the image allows it, with tmpfs for /tmp and /run
 ```
 
-Services that need Docker API access join the `dockersock` external network
-and set `DOCKER_HOST: "tcp://docker-socket-proxy:2375"`.
+When an image can't cope with `cap_drop: ALL` (Forgejo, Picard, Portainer), the compose file says
+so in a comment.
 
 ---
 
-## 🛡️ Container Hardening
+## 💾 Storage & data safety
 
-All containers follow these hardening guidelines where compatible:
+| Where | What | Protected by |
+|---|---|---|
+| `/srv/data` (ZFS mirror `tank/data`) | media, photos, Nextcloud files, books, documents, Git repos | mirror redundancy + monthly scrub (`zfsutils-linux`) |
+| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | ⚠️ manual backups only — see playbook |
+| `/srv/docker/stacks` | compose files | Git + GitHub |
 
-```yaml
-security_opt:
-  - no-new-privileges:true    # Prevent privilege escalation
-cap_drop:
-  - ALL                       # Drop all Linux capabilities
-cap_add:
-  - <only what's needed>      # Add back only required caps
-```
+**Rules that keep data safe across stop/start:**
 
-> **Note:** Some images (e.g. Forgejo) have compatibility issues with `cap_drop: ALL`.
-> In those cases, `cap_drop` is intentionally omitted and documented in the compose file.
+* Everything persistent is an **absolute bind mount** — no named volumes, no anonymous volumes
+  holding data (image-declared `VOLUME`s get an explicit bind, e.g. ONLYOFFICE).
+* Never `docker compose down -v`, never `docker volume prune` without looking first.
 
-Additional hardening:
-* `read_only: true` where possible (with `tmpfs` mounts for `/tmp` and `/run`)
-* `tmpfs` for transient data to reduce disk I/O and improve security
-* `user: "UID:GID"` to avoid running as root when the image supports it
+👉 [`playbooks/04-backup-and-restore.md`](playbooks/04-backup-and-restore.md)
 
 ---
 
-## 📊 Observability
+## ➕ Adding a service — checklist
 
-* No alerting stack: this is a small personal setup
-* **Portainer** provides the Docker management UI (logs, stats, start/stop) and talks to the Docker socket directly
+- [ ] `<app>/docker-compose.yml` starting with the standard header comment
+- [ ] Resource anchors (size tier + role) copied in
+- [ ] Data in `/srv/docker/volumes/<app>` (config/DB) or `/srv/data/<app>` (bulk) — absolute bind mounts
+- [ ] Secrets in `<app>/.env.secrets` (mode 600), referenced by absolute path
+- [ ] Traefik labels with `certresolver=stepca` and `<app>.home`
+- [ ] Pi-hole DNS record `<app>.home → 192.168.1.101`
+- [ ] `security_opt: no-new-privileges`, `cap_drop: ALL` (or a comment saying why not)
+- [ ] Healthcheck, `restart: unless-stopped`, no unnecessary published ports
+- [ ] Deployed as a Portainer Git stack; tile added to Homepage
 
----
-
-## 📸 ZFS Snapshots
-
-The storage backend is a ZFS mirror (`2×4 TB`). Snapshots are taken at key milestones:
-
-* `@initial` — after first setup
-* `@post-oom-hardening` — after applying resource limits
-* Before adding complex services (e.g. Immich, Nextcloud)
-
-```bash
-zfs snapshot tank/srv@post-oom-hardening
-```
-
-The ZFS pool is designed for future migration from mirror to RAIDZ1.
+👉 [`playbooks/05-add-a-new-service.md`](playbooks/05-add-a-new-service.md) · templates:
+[`docker-compose.traefik.yml`](docker-compose.traefik.yml),
+[`docker-compose.db.yml`](docker-compose.db.yml),
+[`docker-compose.socket.yml`](docker-compose.socket.yml)
 
 ---
 
-## 📋 Compose Templates
+## 📖 Playbooks
 
-Three reusable templates are provided in the `stacks/` directory:
-
-### Simple service behind Traefik
-
-See [`docker-compose.traefik.yml`](docker-compose.traefik.yml) — a minimal service
-that joins the `proxy` network and gets TLS via Traefik labels.
-
-### Service with PostgreSQL database
-
-See [`docker-compose.db.yml`](docker-compose.db.yml) — an app + PostgreSQL pattern
-using an internal network for DB traffic and the `proxy` network for Traefik.
-
-### Service needing Docker API
-
-See [`docker-compose.socket.yml`](docker-compose.socket.yml) — for services like
-Portainer or Homepage that need Docker API access via the socket proxy.
-
-### Real-world examples
-
-| Service         | Pattern             | Size Tier | Compose File                                      |
-|-----------------|---------------------|-----------| --------------------------------------------------|
-| Traefik         | Core infrastructure | small     | [`traefik/docker-compose.yml`](traefik/docker-compose.yml)                 |
-| step-ca         | Core infrastructure | small     | [`step-ca/docker-compose.yml`](step-ca/docker-compose.yml)                 |
-| Socket Proxy    | Core infrastructure | xsmall    | [`docker-socket-proxy/docker-compose.yml`](docker-socket-proxy/docker-compose.yml) |
-| Portainer       | Docker API          | medium    | [`portainer/docker-compose.yml`](portainer/docker-compose.yml)               |
-| Homepage        | Docker API          | small     | [`homepage/docker-compose.yml`](homepage/docker-compose.yml)                |
-| Forgejo         | App + PostgreSQL    | medium    | [`forgejo/docker-compose.yml`](forgejo/docker-compose.yml)                 |
-| Jellyfin        | Simple (media)      | xlarge    | [`jellyfin/docker-compose.yml`](jellyfin/docker-compose.yml)               |
-| Immich          | Multi-container     | xlarge    | [`immich/docker-compose.yml`](immich/docker-compose.yml)                  |
-| Paperless       | App + DB + Redis    | large     | [`paperless/docker-compose.yml`](paperless/docker-compose.yml)              |
+| # | Playbook | Use it when… |
+|---|---|---|
+| 01 | [Start & stop apps](playbooks/01-start-stop-apps.md) | you want to use an on-demand app |
+| 02 | [Deploy a change](playbooks/02-deploy-a-change.md) | you edited a compose file |
+| 03 | [Update images](playbooks/03-update-images.md) | an app has a new version |
+| 04 | [Backup & restore](playbooks/04-backup-and-restore.md) | before risky changes, or something broke |
+| 05 | [Add a new service](playbooks/05-add-a-new-service.md) | you want a new app |
+| 06 | [Infrastructure stacks](playbooks/06-infrastructure-stacks.md) | touching Traefik, step-ca, socket proxy or Portainer |
+| 07 | [Secrets](playbooks/07-secrets.md) | adding or rotating a secret |
+| 08 | [Reboot, shutdown & power](playbooks/08-reboot-and-power.md) | restarting the host |
+| 09 | [Troubleshooting](playbooks/09-troubleshooting.md) | something doesn't load |
+| 10 | [Disaster recovery](playbooks/10-disaster-recovery.md) | Portainer, Git or the host is gone |
+| 11 | [Health check](playbooks/11-health-check.md) | monthly once-over |
 
 ---
 
-## 🧪 Checklist for New Services
+<div align="center">
 
-Before deploying any new service:
+**Stable. Predictable. Boring.** That's the point. 🧱
 
-- [ ] `docker-compose.yml` with real resource limits (from [`resource-limits.yaml`](resource-limits.yaml))
-- [ ] Persistent data in `/srv/docker/volumes/<service>`
-- [ ] TLS via Traefik labels with `certresolver=stepca`
-- [ ] Internal DNS name (`<service>.home`)
-- [ ] `oom_score_adj` set according to service role
-- [ ] No unnecessary exposed ports
-- [ ] No temporary hacks
-- [ ] `security_opt: no-new-privileges:true`
-- [ ] `cap_drop: ALL` (unless incompatible — document why)
-- [ ] Healthcheck defined
-- [ ] `restart: unless-stopped`
-
----
-
-## ➕ Adding a New Service
-
-For a step-by-step walkthrough on how to add a new service to this homelab,
-see [`prompt.md`](prompt.md). It includes:
-
-* Full system context (hardware, storage, networking)
-* The working methodology (step-by-step, with checkpoints)
-* An example of adding Forgejo with PostgreSQL
-* Resource limit templates ready to copy
-
----
-
-## 🎯 Design Goal
-
-> **A single app failure must never take down the host.**
-
-This README is the operational contract for the homelab.
-
-Current state: **stable, hardened, and ready to grow** 🚀
+</div>
