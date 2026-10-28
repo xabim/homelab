@@ -29,9 +29,24 @@ old data dir (or, with a changed mount path, silently starts an empty cluster). 
 1. `pg_dump` / `pg_dumpall` the old DB → [04](04-backup-and-restore.md).
 2. Stop the stack, move the old data dir aside (`mv …/postgres …/postgres_pgNN_backup`).
 3. Bump the image (note: PostgreSQL ≥ 18 images expect the mount at `/var/lib/postgresql`, not `/var/lib/postgresql/data`).
-4. Start the stack (fresh cluster), restore the dump, start the app.
+4. Restore into a **temporary container** on the new (empty) data dir, so the app never starts
+   against an empty DB and the stack's `docker-entrypoint-initdb.d` scripts don't create tables
+   that clash with the dump:
+   ```bash
+   cd /srv/docker/stacks/<app>
+   docker run -d --name pgtmp --network none --env-file ../.env.global --env-file .env \
+     --env-file .env.secrets -v <data dir>:/var/lib/postgresql postgres:<new>
+   # wait for "PostgreSQL init process complete", then:
+   docker exec -i pgtmp sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --exit-on-error' < dump
+   docker stop pgtmp && docker rm pgtmp
+   ```
+5. Compare row counts with the old DB, then redeploy the stack (Git redeploy, so the new
+   compose is used) and verify the app.
 
-Immich's Postgres image (`ghcr.io/immich-app/postgres`) must follow Immich's own upgrade notes.
+Immich's Postgres image (`ghcr.io/immich-app/postgres`) must follow Immich's own upgrade notes:
+plain `pg_dump --clean --if-exists`, restored with `psql --single-transaction` after the
+`search_path` fix-up from Immich's backup docs. Raw SQL against its `vchordrq` indexes needs
+`SET LOCAL vchordrq.probes = 1` (Immich sets it itself).
 
 ## Infra images (CLI stacks)
 

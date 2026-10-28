@@ -45,10 +45,10 @@ BK=/srv/data/backups/$(date +%Y%m%d)                            # backup target
 |---|---|---|---|---|
 | `nextcloud` | Portainer | always-on | nextcloud, nextcloud-cron, nextcloud-db, nextcloud-redis, onlyoffice | PostgreSQL 16 |
 | `paperless` | Portainer | always-on | paperless-webserver-1, paperless-db-1, paperless-broker-1 | PostgreSQL 18 |
-| `invidious` | Portainer | always-on | invidious-invidious-1, invidious-companion-1, invidious-invidious-db-1 | PostgreSQL 14 |
+| `invidious` | Portainer | always-on | invidious-invidious-1, invidious-companion-1, invidious-invidious-db-1 | PostgreSQL 18 |
 | `kavita` | Portainer | on-demand | kavita | SQLite |
 | `podsync` | Portainer | always-on | podsync | — |
-| `immich` | Portainer | on-demand | immich-server, immich-ml, immich-postgres, immich-redis | PostgreSQL 14 + vectors |
+| `immich` | Portainer | on-demand | immich-server, immich-ml, immich-postgres, immich-redis | PostgreSQL 18 + VectorChord |
 | `jellyfin` | Portainer | on-demand | jellyfin | SQLite |
 | `navidrome` | Portainer | on-demand | navidrome | SQLite |
 | `forgejo` | Portainer | on-demand | forgejo-forgejo-1, forgejo-db-1 | PostgreSQL 18 |
