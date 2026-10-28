@@ -139,7 +139,7 @@ services:
       - .env
       - /srv/docker/stacks/immich/.env.secrets
     # Using Immich's recommended image with vector extensions
-    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    image: ghcr.io/immich-app/postgres:18-vectorchord1.1.1-pgvector0.8.5
     container_name: immich-postgres
     restart: unless-stopped
     <<: [*resource_medium, *resource_db]
@@ -150,7 +150,7 @@ services:
     blkio_config:
       weight: 200
     volumes:
-      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+      - ${DB_DATA_LOCATION}:/var/lib/postgresql
     shm_size: 128mb
     networks:
       - immich
