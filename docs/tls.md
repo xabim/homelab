@@ -125,6 +125,7 @@ certificatesResolvers:
   stepca:
     acme:
       caServer: https://ca.home:9000/acme/traefik-acme/directory
+      certificatesDuration: 720             # hours — matches step-ca's 30-day certs
       email: admin@home
       storage: /certs/acme-stepca.json      # → /srv/docker/volumes/traefik/certs/
       httpChallenge:
@@ -179,18 +180,10 @@ DNS-free fallback; use the `*.home` names whenever DNS works.
 | Intermediate CA | until 2035-12-25 | you, with the root key (rare) |
 | Root CA | until 2035-12-25 | you — means re-trusting every device (plan ahead) |
 
-Traefik checks renewals at start-up and then periodically, and renews certificates that fall inside
-its *renewal window*, which it derives from `certificatesDuration` (default **2160 h = 90 days** →
-renew when < 30 days remain).
+Traefik checks renewals at start-up and then periodically. It derives its *renewal window* from
+the resolver's `certificatesDuration`, so that value **must match** the lifetime step-ca issues
+(`defaultTLSCertDuration` of the `traefik-acme` provisioner, 720 h). Left at Traefik's default
+(2160 h = 90 days), every 30-day certificate would always look due and be re-issued on every check.
 
----
-
-## 7. Known issues & hardening notes
-
-| # | Finding | Impact | Fix |
-|---|---|---|---|
-| 1 | `certificatesDuration` not set while step-ca issues **30-day** certs | Every certificate is always "< 30 days left" → **all certs are re-issued on every renewal check** (observed: 70 issuances on 2026-10-28) | Add `certificatesDuration: 720` to the `stepca` resolver → playbook 12, task 8 |
-| 2 | Stale hostnames in `acme-stepca.json` (`pihole.home`, `seafile.home`, `spotdl.home`, `status.home`) | Renewal errors in Traefik's log (no DNS record → HTTP-01 fails) | Remove them from the store → playbook 12, task 9 |
-| 3 | Root CA key lives online next to the intermediate | Anyone with root/Docker access can mint trusted certs | Acceptable for a homelab; for more: move `root_ca_key` offline (it's only needed to re-sign the intermediate) |
-| 4 | Traefik dashboard (`:9004`, `traefik.home`) and `traefik-api.home` (plain HTTP) have no authentication | Read-only view of routes for anyone on the LAN | Optional basic-auth middleware, or remove `dynamic/traefik-api-http.yml` |
-| 5 | `step-ca:latest` tag | Unplanned CA upgrades on recreate | Pin `STEP_CA_VERSION` in `step-ca/.env` |
+Traefik only renews certificates it holds in `acme-stepca.json` — including ones for hostnames no
+router uses anymore, which fail renewal once their DNS record is gone.

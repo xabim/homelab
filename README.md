@@ -37,7 +37,6 @@ with real TLS on every service and resource limits on every container.
 - [Storage & data safety](#-storage--data-safety)
 - [Adding a service](#-adding-a-service--checklist)
 - [Documentation & playbooks](#-documentation--playbooks)
-- [Roadmap](#️-roadmap)
 
 </details>
 
@@ -312,7 +311,7 @@ so in a comment.
 | Where | What | Protected by |
 |---|---|---|
 | `/srv/data` (ZFS mirror `tank/data`) | media, photos, Nextcloud files, books, documents, Git repos | mirror redundancy + monthly scrub (`zfsutils-linux`) |
-| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | ⚠️ manual backups only — see playbook |
+| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | manual backups — [playbook 04](playbooks/04-backup-and-restore.md) |
 | `/srv/docker/stacks` | compose files | Git + GitHub |
 
 **Rules that keep data safe across stop/start:**
@@ -364,23 +363,6 @@ so in a comment.
 | 10 | [Disaster recovery](playbooks/10-disaster-recovery.md) | Portainer, Git or the host is gone |
 | 11 | [Health check](playbooks/11-health-check.md) | monthly once-over |
 | 12 | [TLS & certificates](playbooks/12-tls-certificates.md) | certificate warnings, new hostnames, CA work |
-
----
-
-## 🗺️ Roadmap
-
-| Status | Item |
-|:---:|---|
-| ✅ | Compose stacks managed from Portainer (Git-backed, phone-friendly) |
-| ✅ | Internal PKI with automatic 30-day certificates |
-| ✅ | Resource limits + OOM priorities on every container |
-| ✅ | Operational playbooks |
-| ⏳ | Tell Traefik the real cert lifetime (`certificatesDuration: 720`) — [playbook 12 § 8](playbooks/12-tls-certificates.md#8-tell-traefik-the-real-certificate-lifetime) |
-| ⏳ | Clean stale hostnames from the ACME store — [playbook 12 § 9](playbooks/12-tls-certificates.md#9-remove-stale-certificates--force-re-issue) |
-| 📋 | **Automated, off-host backups** of databases + `/srv/docker/volumes` |
-| 📋 | Pin floating image tags (`step-ca:latest`, `immich:release`, …) |
-| 📋 | Optional: auth on the Traefik dashboard, offline root CA key |
-| 💡 | Move to SSD-only, lower-power hardware |
 
 ---
 

@@ -18,7 +18,7 @@ CA="--cacert $CA_CRT"
 | 5 | [Troubleshoot issuance](#5-troubleshoot-issuance) | 🟢 |
 | 6 | [Check step-ca health](#6-check-step-ca-health) | 🟢 |
 | 7 | [Back up & restore the CA](#7-back-up--restore-the-ca) | 🟢 / 🔴 |
-| 8 | [Tell Traefik the real certificate lifetime](#8-tell-traefik-the-real-certificate-lifetime) | 🟡 Traefik restart |
+| 8 | [Change the certificate lifetime](#8-change-the-certificate-lifetime) | 🟡 restarts |
 | 9 | [Remove stale certificates / force re-issue](#9-remove-stale-certificates--force-re-issue) | 🟡 Traefik restart |
 | 10 | [Re-issue the intermediate CA](#10-re-issue-the-intermediate-ca-rare) | 🔴 rare |
 
@@ -160,41 +160,39 @@ Losing `/srv/docker/volumes/step-ca` without a backup = new CA = **re-trust ever
 
 ---
 
-## 8. Tell Traefik the real certificate lifetime
+## 8. Change the certificate lifetime
 
-**Why:** step-ca issues 30-day certs, but Traefik assumes 90 days (`certificatesDuration: 2160`) and
-renews when < 30 days remain — i.e. **always**. Every certificate is re-issued on every renewal check.
+Two values must always agree: step-ca's issued lifetime and Traefik's `certificatesDuration`
+(see [docs/tls.md § 6](../docs/tls.md#6-lifecycle--renewal)).
 
-1. Edit `/srv/docker/volumes/traefik/traefik.yml`:
-   ```yaml
-   certificatesResolvers:
-     stepca:
-       acme:
-         caServer: https://ca.home:9000/acme/traefik-acme/directory
-         certificatesDuration: 720          # hours — must match step-ca's defaultTLSCertDuration
-         # …rest unchanged
+1. step-ca — `/srv/docker/volumes/step-ca/config/ca.json`, provisioner `traefik-acme`:
+   `claims.defaultTLSCertDuration` / `maxTLSCertDuration` (e.g. `720h`).
+2. Traefik — `/srv/docker/volumes/traefik/traefik.yml`, resolver `stepca`:
+   `certificatesDuration: <same value in hours>`.
+3. Restart both:
+   ```bash
+   cd /srv/docker/stacks/step-ca && docker compose restart step-ca
+   cd /srv/docker/stacks/traefik && docker compose restart -t 5 traefik
    ```
-2. Restart Traefik (static config): `cd /srv/docker/stacks/traefik && docker compose restart traefik` (~5 s outage).
-3. Verify: no wave of `Renewing ACME certificate` lines in `docker logs traefik` after the next check;
-   certificate start dates (task 2) stop moving every day.
-
-If you ever change the lifetime in step-ca (`ca.json` → `traefik-acme` claims), change this value too.
+4. Verify: `docker logs --since 2m traefik | grep -c 'Renewing ACME'` stays near 0 for valid certs;
+   new certificates show the new lifetime (task 2).
 
 ---
 
 ## 9. Remove stale certificates / force re-issue
 
 Traefik keeps renewing every certificate in its store, even for hostnames no router uses.
-Edit the store **only while Traefik is stopped**:
+Edit the store **only while Traefik is stopped**. `-t 5` keeps the outage short (the default stop
+waits up to the 60 s grace period):
 
 ```bash
 cd /srv/docker/stacks/traefik
 docker run --rm -v /srv/docker/volumes/traefik/certs:/c:ro -v /srv/data/backups:/b alpine:3 \
   cp /c/acme-stepca.json /b/acme-stepca-$(date +%Y%m%d-%H%M).json        # backup (contains keys!)
-docker compose stop traefik                                             # ⚠️ all *.home down from here
+docker compose stop -t 5 traefik                                        # ⚠️ all *.home down from here
 docker run --rm -v /srv/docker/volumes/traefik/certs:/c python:3-alpine python -c '
 import json
-STALE = {"pihole.home", "seafile.home", "spotdl.home", "status.home"}      # edit this list
+STALE = {"old-app.home"}                                                 # hostnames to drop
 p = "/c/acme-stepca.json"; s = json.load(open(p))
 for r in s.values():
     before = len(r["Certificates"]); r["Certificates"] = [c for c in r["Certificates"] if c["domain"]["main"] not in STALE]

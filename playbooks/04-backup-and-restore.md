@@ -3,9 +3,9 @@
 **Use when:** before upgrades or risky changes, on a regular schedule, or when data is lost.
 **Risk:** 🟢 backups are read-only · 🔴 restores overwrite data.
 
-> ⚠️ **There is no automated backup.** `/srv/data` is a ZFS **mirror** (protects against a dead
-> disk, not against deletion or corruption). `/srv/docker/volumes` — every database and config — is
-> on the single NVMe. Take backups manually until something automated exists.
+> Backups are **manual**. `/srv/data` is a ZFS **mirror** — it survives a dead disk, not deletion or
+> corruption. `/srv/docker/volumes` — every database and config — lives on the single NVMe.
+> Take backups before risky changes and keep copies off-host.
 
 ## What to back up
 
