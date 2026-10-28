@@ -9,7 +9,7 @@ Plain files and rsync — no backup tool, no password, nothing to install.
 
 | Step | What | Where | When |
 |---|---|---|---|
-| **1 · NVMe → ZFS** | DB dumps, configs, secrets, Portainer, host config | `/srv/data/backups/nvme/` | nightly 03:30 (`homelab-backup.timer`) **or by hand** → [`scripts/backup.sh`](../scripts/backup.sh) |
+| **1 · NVMe → ZFS** | DB dumps, configs, secrets, Portainer, host config | `/srv/data/backups/nvme/` | daily 22:00, right before the host powers off (`homelab-shutdown.timer`) **or by hand** → [`scripts/backup.sh`](../scripts/backup.sh) |
 | **2 · ZFS → HDD** | all of `/srv/data`: bulk data **and** step 1 | external HDD labelled `HOMELAB-BACKUP` | by hand → [`scripts/backup-external.sh`](../scripts/backup-external.sh) |
 
 Live data stays on the NVMe; ZFS holds the copy. Inside `/srv/data/backups/nvme/` (root only):
@@ -28,7 +28,8 @@ Live data stays on the NVMe; ZFS holds the copy. Inside `/srv/data/backups/nvme/
 * **SQLite apps** (Navidrome, Kavita, Jellyfin) are copied as files — fine while stopped; if one is
   running, the run prints a `WARNING`.
 * **Skipped:** Jellyfin cache, Immich ML cache, logs, Redis.
-* **Host off at 03:30?** The timer runs after the next boot, once the host has been up 15 minutes.
+* **Host off at 22:00?** Then there's no backup that day — nothing changed either. Booting after
+  22:00 doesn't power it straight off; the next run is the following evening ([08](08-reboot-and-power.md#daily-backup--power-off-at-2200)).
 
 Both copies are **mirrors**: `volumes/` and `stacks/` hold the latest state only, and the HDD gets
 whatever `/srv/data` holds at that moment — a file deleted on the server disappears from the disk on the
@@ -43,14 +44,8 @@ sudo /srv/docker/stacks/scripts/backup.sh
 ```
 
 Takes a minute or two and ends with `[backup] done: <size> in /srv/data/backups/nvme`. `WARNING` /
-`ERROR` lines are printed as they happen. If the nightly run is in progress it stops with
-`another backup is running` — wait and retry.
-
-The same run through systemd (output in the journal, like the nightly one):
-
-```bash
-sudo systemctl start homelab-backup.service && journalctl -u homelab-backup.service -n 30
-```
+`ERROR` lines are printed as they happen. If another backup or the HDD copy is running it stops with
+`another backup is running` — wait and retry, or add `--wait` to queue behind it.
 
 For a complete off-host copy: run the backup, then the external copy below.
 
@@ -81,10 +76,11 @@ It must be larger than `/srv/data` (`zfs list tank/data`) with room to grow.
 ```bash
 sudo cat /srv/data/backups/nvme/LAST-BACKUP           # last NVMe backup
 sudo ls /srv/data/backups/nvme/db/                    # one directory per day of dumps
-journalctl -u homelab-backup.service -n 30            # last nightly run: WARNING / ERROR?
+journalctl -u homelab-shutdown.service -n 30          # last 22:00 run: WARNING / ERROR?
 ```
 
-The timer is installed by [`host/bootstrap.sh`](../host/bootstrap.sh).
+The timer is installed by [`host/bootstrap.sh`](../host/bootstrap.sh). The journal is persistent, so the
+log of the 22:00 run survives the power-off.
 
 ## Restore
 
@@ -114,7 +110,7 @@ Start the whole stack and verify. **Immich:** see Immich's restore docs for anyt
 
 ## One-off dump or tar
 
-For a copy kept apart from the nightly rotation:
+For a copy kept apart from the daily rotation:
 
 ```bash
 BK=/srv/data/backups/$(date +%Y%m%d); mkdir -p $BK

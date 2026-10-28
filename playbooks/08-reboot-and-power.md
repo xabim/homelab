@@ -33,6 +33,23 @@ docker ps --format '{{.Names}}\t{{.Status}}' | sort
 
 Then run the quick checks in [11 · Health check](11-health-check.md#quick-check-2-minutes).
 
+## Daily backup + power-off at 22:00
+
+`homelab-shutdown.timer` runs every day at **22:00 Spanish time** (`Europe/Madrid`, summer time
+included): it takes the NVMe backup ([04](04-backup-and-restore.md)), then powers the host off. A
+running backup or HDD copy is waited for, never cut off; a failed backup still powers off (the error
+is in the journal).
+
+```bash
+systemctl list-timers homelab-shutdown.timer          # next run
+sudo systemctl stop homelab-shutdown.timer            # skip tonight (back at the next boot)
+sudo systemctl stop homelab-shutdown.service          # it's 22:00 and the backup is running: cancel both
+sudo systemctl disable --now homelab-shutdown.timer   # turn it off for good (bootstrap.sh turns it back on)
+journalctl -u homelab-shutdown.service -n 30          # what the last run did
+```
+
+Booting after 22:00 doesn't trigger it: the next run is the following evening.
+
 ## Shutdown overnight / Wake-on-LAN
 
 * `sudo systemctl poweroff` — same behaviour as a reboot on the next start.

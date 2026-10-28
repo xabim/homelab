@@ -2,9 +2,11 @@
 # =============================================================================
 # Backup of the NVMe to ZFS, as plain files (DB dumps + rsync)
 #
-#   sudo /srv/docker/stacks/scripts/backup.sh
+#   sudo /srv/docker/stacks/scripts/backup.sh          by hand, any time
+#   sudo /srv/docker/stacks/scripts/backup.sh --wait   wait for a running backup/copy first
 #
-# Runs nightly from host/systemd/homelab-backup.timer, or by hand at any time.
+# Runs every day at 22:00 from host/systemd/homelab-shutdown.timer, right before
+# the host powers off.
 # Live data stays on the NVMe; the copy lands in /srv/data/backups/nvme (ZFS),
 # which scripts/backup-external.sh then mirrors to the external HDD:
 #
@@ -49,7 +51,11 @@ mountpoint -q /srv/data || die "/srv/data is not mounted"
 
 # One backup at a time (backup-external.sh takes the same lock)
 exec 9>/run/homelab-backup.lock
-flock -n 9 || die "another backup is running"
+if [ "${1:-}" = --wait ]; then
+  flock -n 9 || { log "waiting for the running backup/copy to finish"; flock 9; }
+else
+  flock -n 9 || die "another backup is running (use --wait to queue)"
+fi
 
 # Holds every secret: root only
 install -d -m 700 "$DEST"

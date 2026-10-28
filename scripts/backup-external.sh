@@ -36,7 +36,8 @@ DEV=$(blkid -L "$LABEL" 2>/dev/null) || die "no disk labelled $LABEL (see playbo
 FSTYPE=$(blkid -s TYPE -o value "$DEV")
 [ "$FSTYPE" = ext4 ] || die "$DEV is $FSTYPE, expected ext4"
 
-# Same lock as the nightly job, so the NVMe backup is copied at rest
+# Same lock as backup.sh, so the NVMe backup is copied at rest and the
+# 22:00 shutdown waits for this copy to finish
 exec 9>/run/homelab-backup.lock
 flock -n 9 || die "a backup is running, try again later"
 

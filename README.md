@@ -164,10 +164,10 @@ sequenceDiagram
 ├── resource-limits.yaml            ← reference copy of the resource anchors
 ├── stacks.toml                     ← the Portainer Git stacks and their mode (always-on / on-demand)
 ├── scripts/portainer-stacks.py     ← plan / apply / redeploy those stacks via the Portainer API
-├── scripts/backup.sh               ← nightly or by hand: DB dumps + rsync of the NVMe → ZFS
+├── scripts/backup.sh               ← daily 22:00 (then power-off) or by hand: DB dumps + rsync of the NVMe → ZFS
 ├── scripts/backup-external.sh      ← by hand: mirror /srv/data to the external HDD
 ├── host/bootstrap.sh               ← idempotent host setup: packages, daemon.json, ZFS, timers, networks, infra
-├── host/systemd/                   ← backup service + timer (installed by bootstrap.sh)
+├── host/systemd/                   ← 22:00 backup + power-off timer (installed by bootstrap.sh)
 ├── docker-compose.{traefik,db,socket}.yml   ← snippet templates for new services
 ├── prompt.md                       ← AI-assistant prompt for adding services
 └── <stack>/
@@ -321,7 +321,7 @@ so in a comment.
 | Where | What | Protected by |
 |---|---|---|
 | `/srv/data` (ZFS mirror `tank/data`) | media, photos, Nextcloud files, books, documents, Git repos | mirror redundancy + monthly scrub (`zfs-scrub-monthly@tank.timer`, catches up after downtime) |
-| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | `scripts/backup.sh` (nightly or by hand): DB dumps + rsync → `/srv/data/backups/nvme` |
+| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | `scripts/backup.sh` (daily at 22:00 before the host powers off, or by hand): DB dumps + rsync → `/srv/data/backups/nvme` |
 | `/srv/docker/stacks` | compose files, scripts, docs + `.env.secrets` | Git + GitHub; secrets copied to `/srv/data/backups/nvme/stacks` |
 | External HDD | rsync mirror of all of `/srv/data`, NVMe backup included | `scripts/backup-external.sh`, run by hand |
 

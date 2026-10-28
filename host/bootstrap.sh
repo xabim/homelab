@@ -92,18 +92,25 @@ for n in proxy dockersock; do
 done
 
 # --- Backups ---------------------------------------------------------------------
-step "backups"
+step "backup + 22:00 power-off"
 if [ -f /srv/data/backups/nvme/LAST-BACKUP ]; then ok "NVMe backup from $(cat /srv/data/backups/nvme/LAST-BACKUP)"
 else todo "no NVMe backup in /srv/data/backups/nvme yet: restore /srv/data, or run scripts/backup.sh"; fi
+# homelab-backup.{service,timer} (03:30) were replaced by the 22:00 backup + shutdown
+if [ -e /etc/systemd/system/homelab-backup.timer ]; then
+  systemctl disable --now -q homelab-backup.timer || true
+  rm -f /etc/systemd/system/homelab-backup.{service,timer}
+  systemctl daemon-reload
+  ok "old homelab-backup timer removed"
+fi
 changed=false
-for u in homelab-backup.service homelab-backup.timer; do
+for u in homelab-shutdown.service homelab-shutdown.timer; do
   if ! cmp -s "$STACKS/host/systemd/$u" "/etc/systemd/system/$u"; then
     install -m 644 "$STACKS/host/systemd/$u" "/etc/systemd/system/$u"; changed=true
   fi
 done
 $changed && systemctl daemon-reload && ok "systemd units installed/updated"
-systemctl enable --now -q homelab-backup.timer
-ok "backup timer enabled"
+systemctl enable --now -q homelab-shutdown.timer
+ok "22:00 backup + power-off timer enabled"
 
 # --- Infrastructure stacks -------------------------------------------------------
 step "infrastructure stacks"

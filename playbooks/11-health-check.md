@@ -38,7 +38,7 @@ df -h / /srv/data
 | Certificates | `echo \| openssl s_client -connect localhost:443 -servername cloud.home 2>/dev/null \| openssl x509 -noout -enddate` | far from expiry (renewed automatically) |
 | Git in sync | `git -C /srv/docker/stacks status -sb` | `## main...origin/main`, clean |
 | Portainer stacks | Portainer → Stacks · `scripts/portainer-stacks.py plan` | no unexpected "Limited" app stacks; plan shows no `+`, `~` or `?` lines |
-| Backups | `sudo cat /srv/data/backups/nvme/LAST-BACKUP` · `journalctl -u homelab-backup.service -n 20` | recent, last run ended in `done` without ERROR; external disk copied recently ([04](04-backup-and-restore.md#check-the-backup)) |
+| Backups | `sudo cat /srv/data/backups/nvme/LAST-BACKUP` · `journalctl -u homelab-shutdown.service -n 20` | recent, last run ended in `done` without ERROR; external disk copied recently ([04](04-backup-and-restore.md#check-the-backup)) |
 | Updates waiting | Portainer / app UIs "new version" banners | plan with [03](03-update-images.md) |
 
 ## Expected state

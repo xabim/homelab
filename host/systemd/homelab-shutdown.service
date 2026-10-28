@@ -1,0 +1,11 @@
+[Unit]
+Description=Homelab evening backup (NVMe -> ZFS), then power off
+After=docker.service zfs-mount.service
+
+[Service]
+Type=oneshot
+# Waits for a running backup or HDD copy instead of cutting it off.
+# "-": power off even if the backup failed (the journal keeps the error).
+ExecStart=-/srv/docker/stacks/scripts/backup.sh --wait
+ExecStart=/usr/bin/systemctl poweroff
+TimeoutStartSec=infinity

@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up and power off the homelab every day at 22:00 (Europe/Madrid)
+
+[Timer]
+OnCalendar=*-*-* 22:00 Europe/Madrid
+# Never catch up: booting after 22:00 must not power the host straight off
+Persistent=false
+
+[Install]
+WantedBy=timers.target
