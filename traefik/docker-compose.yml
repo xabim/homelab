@@ -15,7 +15,7 @@ x-resource-core: &resource_core
 services:
   # Traefik: reverse proxy and load balancer
   traefik:
-    image: traefik:v3.6.7
+    image: traefik:v3.6.25
     container_name: traefik
     command:
       - sh

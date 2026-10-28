@@ -7,7 +7,7 @@
 
 | Style | Stacks | Updates when… |
 |---|---|---|
-| **Pinned** in `.env` (`NAVIDROME_VERSION=0.62.0`, `PAPERLESS_VERSION=2.20.10`, `KAVITA_VERSION=…`, `HOMEPAGE_VERSION=…`) or in the compose file (`nextcloud:32-apache`, `onlyoffice/documentserver:9.4.0.1`, `forgejo:15`, `traefik:v3.6.7`) | most | you change the version and commit |
+| **Pinned** in `.env` (`NAVIDROME_VERSION=0.62.0`, `PAPERLESS_VERSION=2.20.10`, `KAVITA_VERSION=…`, `HOMEPAGE_VERSION=…`) or in the compose file (`nextcloud:32-apache`, `onlyoffice/documentserver:9.4.0.1`, `forgejo:15`, `traefik:v3.6.25`) | most | you change the version and commit |
 | **Floating** (`release`, `latest`, `nightly`) | immich, invidious, podsync, jellyfin, picard, yubal | you redeploy with **Re-pull image** |
 
 Prefer pinned tags: an upgrade then has a commit you can revert.
