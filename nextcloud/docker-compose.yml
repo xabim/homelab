@@ -172,7 +172,7 @@ services:
   # ONLYOFFICE Document Server for collaborative editing
   onlyoffice:
     <<: [*resource_xlarge, *resource_service]
-    image: onlyoffice/documentserver:9.4.0.1
+    image: onlyoffice/documentserver:10.0.0.1
     container_name: onlyoffice
     restart: unless-stopped
     env_file:
