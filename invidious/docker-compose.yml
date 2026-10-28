@@ -113,7 +113,7 @@ services:
       - .env
       - /srv/docker/stacks/invidious/.env.secrets
     volumes:
-      - ${INVIDIOUS_PG_DATA}:/var/lib/postgresql/data
+      - ${INVIDIOUS_PG_DATA}:/var/lib/postgresql
       # Mount Invidious schema and init script
       - /srv/docker/stacks/invidious/db-init/sql:/config/sql:ro
       - /srv/docker/stacks/invidious/db-init/init-invidious-db.sh:/docker-entrypoint-initdb.d/init-invidious-db.sh:ro
