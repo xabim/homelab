@@ -1,45 +1,73 @@
 # 04 · Backup & restore
 
-**Use when:** setting up backups, copying to the external disk, before risky changes, or when data is lost.
+**Use when:** before upgrades or risky changes, copying to the external disk, or when data is lost.
 **Risk:** 🟢 backups are read-only · 🔴 restores overwrite data.
 
 ## How it works
 
-| Layer | What | Where | When |
+Plain files and rsync — no backup tool, no password, nothing to install.
+
+| Step | What | Where | When |
 |---|---|---|---|
-| **Nightly** | configs, DB dumps, secrets, Portainer, host config (everything on the NVMe) | restic repo `/srv/data/backups/restic` (ZFS) | 03:30, `homelab-backup.timer` → [`scripts/backup.sh`](../scripts/backup.sh) |
-| **External** | all of `/srv/data` (bulk data **and** the restic repo) | HDD labelled `HOMELAB-BACKUP` | by hand → [`scripts/backup-external.sh`](../scripts/backup-external.sh) |
+| **1 · NVMe → ZFS** | DB dumps, configs, secrets, Portainer, host config | `/srv/data/backups/nvme/` | nightly 03:30 (`homelab-backup.timer`) **or by hand** → [`scripts/backup.sh`](../scripts/backup.sh) |
+| **2 · ZFS → HDD** | all of `/srv/data`: bulk data **and** step 1 | external HDD labelled `HOMELAB-BACKUP` | by hand → [`scripts/backup-external.sh`](../scripts/backup-external.sh) |
 
-Live data stays on the NVMe; ZFS only holds the backups of it. The nightly snapshot:
+Live data stays on the NVMe; ZFS holds the copy. Inside `/srv/data/backups/nvme/` (root only):
 
-* **Postgres:** running containers are dumped (`pg_dumpall --clean --if-exists`) and their data
-  directories skipped; stopped ones (e.g. Forgejo) are consistent on disk and copied as files.
-* **Portainer:** taken through its backup API (`portainer.db` must not be copied while open).
-* **Secrets:** all of `/srv/docker/stacks`, so every `.env.secrets` and `immich/.secrets`.
-* **Host:** `daemon.json`, `fstab`, network config, ZFS properties, package list, Docker networks.
+| Path | Content |
+|---|---|
+| `db/<date>/<container>.sql.gz` | `pg_dumpall --clean --if-exists` of every **running** Postgres — last 7 days kept |
+| `volumes/` | rsync of `/srv/docker/volumes` — latest only |
+| `stacks/` | rsync of `/srv/docker/stacks` — the Git repo **plus every `.env.secrets`** |
+| `portainer/` | Portainer's own backup (`portainer.db` can't be copied while open) + the API token |
+| `host/` | `daemon.json`, `fstab`, network config, ZFS layout, package list |
+| `LAST-BACKUP` | when the last run finished |
+
+* **Postgres:** running databases are dumped and their data directory left out of `volumes/`;
+  stopped ones (e.g. Forgejo) are consistent on disk and copied as files.
+* **SQLite apps** (Navidrome, Kavita, Jellyfin) are copied as files — fine while stopped; if one is
+  running, the run prints a `WARNING`.
 * **Skipped:** Jellyfin cache, Immich ML cache, logs, Redis.
-* **SQLite apps** (Navidrome, Kavita, Jellyfin) are copied as files — fine while stopped. If one is
-  running at 03:30, the journal shows a warning.
-* Kept: 7 daily, 4 weekly, 6 monthly. `restic check` every Sunday.
+* **Host off at 03:30?** The timer runs after the next boot, once the host has been up 15 minutes.
 
-The external disk is a plain **mirror** — no history: a file deleted on the server is deleted from the
-disk on the next copy. The disk holds `restic.pass`, so **anyone holding it can read everything**.
+Both copies are **mirrors**: `volumes/` and `stacks/` hold the latest state only, and the HDD gets
+whatever `/srv/data` holds at that moment — a file deleted on the server disappears from the disk on the
+next copy. The HDD is **not encrypted**: anyone holding it can read everything, secrets included.
 
-## One-time setup
+## Run a backup now
+
+Any time — before an upgrade, a migration, or just because:
 
 ```bash
-sudo apt install restic
-sudo install -d -m 700 /etc/homelab
-sudo sh -c 'umask 077; openssl rand -base64 32 > /etc/homelab/restic.pass'
-sudo /srv/docker/stacks/scripts/backup.sh init
-sudo cp /srv/docker/stacks/host/systemd/homelab-backup.{service,timer} /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now homelab-backup.timer
-sudo systemctl start homelab-backup.service     # first run now; watch with journalctl
+sudo /srv/docker/stacks/scripts/backup.sh
 ```
 
-Also keep the password somewhere off the server (`sudo cat /etc/homelab/restic.pass`).
+Takes a minute or two and ends with `[backup] done: <size> in /srv/data/backups/nvme`. `WARNING` /
+`ERROR` lines are printed as they happen. If the nightly run is in progress it stops with
+`another backup is running` — wait and retry.
 
-### Prepare the external disk (once, erases it)
+The same run through systemd (output in the journal, like the nightly one):
+
+```bash
+sudo systemctl start homelab-backup.service && journalctl -u homelab-backup.service -n 30
+```
+
+For a complete off-host copy: run the backup, then the external copy below.
+
+## Copy to the external disk
+
+Plug the disk in, then:
+
+```bash
+sudo /srv/docker/stacks/scripts/backup-external.sh
+```
+
+It mounts the disk by label, refuses to run if `/srv/data` isn't mounted, asks before deleting more
+than 1000 files, mirrors `/srv/data`, adds `RESTORE.md` ([docs/restore-from-hdd.md](../docs/restore-from-hdd.md))
+and unmounts. Unplug after `disk unmounted, safe to unplug`. The first run takes hours; later ones
+copy only changes.
+
+### Prepare the disk (once, erases it)
 
 ```bash
 lsblk -o NAME,SIZE,MODEL,LABEL          # find the disk — double-check, this wipes it
@@ -48,91 +76,45 @@ sudo mkfs.ext4 -L HOMELAB-BACKUP /dev/sdX1
 
 It must be larger than `/srv/data` (`zfs list tank/data`) with room to grow.
 
-## Copy to the external disk
+## Check the backup
 
 ```bash
-sudo /srv/docker/stacks/scripts/backup-external.sh
+sudo cat /srv/data/backups/nvme/LAST-BACKUP           # last NVMe backup
+sudo ls /srv/data/backups/nvme/db/                    # one directory per day of dumps
+journalctl -u homelab-backup.service -n 30            # last nightly run: WARNING / ERROR?
 ```
 
-It mounts the disk by label, refuses to run if `/srv/data` isn't mounted, asks before deleting more
-than 1000 files, mirrors `/srv/data`, adds `restic`, `restic.pass` and `RESTORE.md`
-([docs/restore-from-hdd.md](../docs/restore-from-hdd.md)), checks the copied repo and unmounts.
-The first run takes hours; later ones copy only changes.
+The timer is installed by [`host/bootstrap.sh`](../host/bootstrap.sh).
 
-## Run a backup now
+## Restore
 
-Any time — before an upgrade, a migration, or just because. The nightly snapshot may be up to a day old.
+`B=/srv/data/backups/nvme` (or `/mnt/homelab-backup/data/backups/nvme` from the HDD).
 
-**Nightly backup (NVMe → ZFS), output in the terminal:**
-
-```bash
-sudo /srv/docker/stacks/scripts/backup.sh
-```
-
-Takes a minute or two. It ends with `[backup] done`; any `WARNING` / `ERROR` line is printed as it
-happens. If the timer's run is in progress it refuses with `another backup is running` — wait and retry.
-
-**Same thing through systemd** (identical run, output goes to the journal like the nightly one):
-
-```bash
-sudo systemctl start homelab-backup.service          # returns when finished
-journalctl -u homelab-backup.service -n 30           # read the result
-```
-
-**Then confirm** a new snapshot exists (newest last):
-
-```bash
-sudo /srv/docker/stacks/scripts/backup.sh snapshots
-```
-
-**External disk (ZFS → HDD):** plug it in, then
-
-```bash
-sudo /srv/docker/stacks/scripts/backup-external.sh
-```
-
-For a complete off-host copy, run the nightly backup first, then the external one.
-
-## Check the nightly backup
-
-```bash
-systemctl list-timers homelab-backup.timer
-journalctl -u homelab-backup.service -n 50       # last run; look for WARNING / ERROR
-sudo /srv/docker/stacks/scripts/backup.sh snapshots
-```
-
-## Restore — from the nightly snapshots
-
-```bash
-export RESTIC_REPOSITORY=/srv/data/backups/restic RESTIC_PASSWORD_FILE=/etc/homelab/restic.pass
-sudo -E restic snapshots
-sudo -E restic restore latest --target /tmp/restore --include /srv/docker/volumes/<app>
-```
-
-**Config / files:** stop the stack in Portainer, keep the current state, put the restored copy in place:
+**Config / files of one app:** stop the stack in Portainer, keep the current state, copy back:
 
 ```bash
 sudo mv /srv/docker/volumes/<app> /srv/docker/volumes/<app>.before-restore
-sudo cp -a /tmp/restore/srv/docker/volumes/<app> /srv/docker/volumes/<app>
+sudo rsync -aH --numeric-ids $B/volumes/<app>/ /srv/docker/volumes/<app>/
 ```
 
-**Database:** restore the dump, then load it into the DB container started on an **empty** data
-directory (app containers stopped):
+Then **Start** the stack in Portainer and verify.
+
+**Database:** stop the **app** container but keep (or start only) the DB container on an **empty**
+data directory, then load the dump:
 
 ```bash
-sudo -E restic restore latest --target /tmp/restore --include /var/tmp/homelab-backup/db
-gunzip -c /tmp/restore/var/tmp/homelab-backup/db/<container>.sql.gz \
+sudo ls $B/db/                                         # pick a date
+gunzip -c $B/db/<date>/<container>.sql.gz \
   | docker exec -i <container> sh -c 'psql -U "$POSTGRES_USER" -d postgres'
 ```
 
-Then **Start** the stack in Portainer and verify. **Immich:** see Immich's restore docs for
-anything beyond this (it needs a fresh cluster).
+Start the whole stack and verify. **Immich:** see Immich's restore docs for anything beyond this.
 
-**Secrets:** `--include /srv/docker/stacks` and copy the `.env.secrets` you need (mode 600).
+**A secret:** `sudo cp -a $B/stacks/<app>/.env.secrets /srv/docker/stacks/<app>/` (mode 600 is kept).
 
-## One-off dump or tar (outside restic)
+## One-off dump or tar
 
-For a quick file you can hand to `psql` right away, next to the snapshots:
+For a copy kept apart from the nightly rotation:
 
 ```bash
 BK=/srv/data/backups/$(date +%Y%m%d); mkdir -p $BK

@@ -46,31 +46,37 @@ Before giving the stack back to Portainer: `docker compose down` in that directo
 
 ## Scenario C — rebuild the host
 
-Order matters:
+[`host/bootstrap.sh`](../host/bootstrap.sh) does the host part and is safe to re-run: it installs
+packages, writes `daemon.json`, imports the pool, enables the scrub and backup timers, creates the
+networks and starts the infra stacks — and prints a **TODO** for anything it can't do itself.
 
-1. Debian 13, Docker Engine + Compose plugin, ZFS, restic. Pool intact → `zpool import tank` → `/srv/data`.
-   Pool lost → recreate it and copy `data/` back from the external disk
-   ([restore-from-hdd](../docs/restore-from-hdd.md)).
-2. `/etc/homelab/restic.pass` (mode 600) from the external disk or your password manager.
-3. Restore `/srv/docker` (compose files, **all `.env.secrets`**, step-ca CA keys, Traefik, app configs)
-   from the latest nightly snapshot, then load the DB dumps ([04](04-backup-and-restore.md#restore--from-the-nightly-snapshots)):
+1. Install Debian 13 with the `contrib` APT component (for ZFS), then:
    ```bash
-   export RESTIC_REPOSITORY=/srv/data/backups/restic RESTIC_PASSWORD_FILE=/etc/homelab/restic.pass
-   restic restore latest --target / --include /srv/docker
-   cd /srv/docker/stacks && git pull          # newer commits than the snapshot, if any
+   sudo apt install git
+   sudo git clone https://github.com/xabim/homelab.git /srv/docker/stacks
+   sudo chown -R $USER: /srv/docker/stacks
+   sudo /srv/docker/stacks/host/bootstrap.sh       # first pass: packages, pool, networks
    ```
-   Databases that were running at backup time have **no data directory** in the snapshot — load
-   their dumps after step 5 and **before step 7**, or the apps initialise empty databases:
-   `cd <app> && docker compose up -d <db-service>`, load the dump, `docker compose down`.
-4. Backup timer: `cp host/systemd/homelab-backup.{service,timer} /etc/systemd/system/` and
-   `systemctl enable --now homelab-backup.timer`.
-5. Networks: `docker network create proxy && docker network create dockersock`
-6. Infra, in this order:
+   Containers resolve `*.home` through the first `nameserver` in `/etc/resolv.conf` — if that isn't
+   the Pi-hole, run it as `sudo DOCKER_DNS=<pihole-ip> …/bootstrap.sh`.
+2. **Pool lost?** Recreate `tank` (layout in `backups/nvme/host/zfs-properties.txt` on the external
+   disk) and copy the data back from it ([restore-from-hdd](../docs/restore-from-hdd.md)).
+3. **Restore `/srv/docker`** — the repo with **all `.env.secrets`**, step-ca CA keys, Traefik, app configs:
    ```bash
-   for s in docker-socket-proxy step-ca traefik portainer; do (cd /srv/docker/stacks/$s && docker compose up -d); done
+   B=/srv/data/backups/nvme
+   sudo rsync -aH --numeric-ids $B/stacks/  /srv/docker/stacks/
+   sudo rsync -aH --numeric-ids $B/volumes/ /srv/docker/volumes/
+   cd /srv/docker/stacks && git pull            # newer commits than the backup, if any
    ```
-7. App stacks via Portainer (scenario B, step 1 onwards).
-8. Clients keep trusting the old root CA only if step-ca's data was restored — otherwise
+4. **Second pass:** `sudo host/bootstrap.sh` — now starts socket proxy, step-ca, Traefik and Portainer.
+5. **Databases** that were running at backup time have **no data directory** in `volumes/`. Load
+   their dumps from `$B/db/<date>/` **before** the apps start, or they initialise empty databases:
+   `cd <app> && docker compose up -d <db-service>`, load the dump
+   ([04](04-backup-and-restore.md#restore)), `docker compose down`.
+6. **Portainer:** create the admin (or restore `portainer/portainer-backup.tar.gz` on its first-run
+   screen) and an API token, then the app stacks — scenario B, steps 2–4:
+   `scripts/portainer-stacks.py apply --yes`.
+7. Clients keep trusting the old root CA only if step-ca's data was restored — otherwise
    reinstall the new `root_ca.crt` everywhere.
 
 ## Scenario D — a ZFS disk fails
@@ -86,5 +92,5 @@ The mirror keeps serving data while degraded. Replace soon — a second failure 
 ## Scenario E — NVMe fails
 
 Lost: OS, `/srv/docker/volumes` (all DBs and configs), Portainer data. Survives: `/srv/data`,
-GitHub, and the nightly restic snapshots on ZFS. Recovery = scenario C — at most one night of
-configs and databases is lost.
+GitHub, and the NVMe backup in `/srv/data/backups/nvme`. Recovery = scenario C — at most
+one backup run of configs and databases is lost.

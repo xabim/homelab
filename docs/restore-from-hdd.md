@@ -1,51 +1,45 @@
 # Restore from the external backup disk
 
 This disk is written by `scripts/backup-external.sh` (repo `github.com/xabim/homelab`).
+Everything on it is plain files — `ls`, `cp` and `rsync` are all you need.
 
 ```text
-data/                  mirror of the server's /srv/data (ZFS): media, photos, Nextcloud files, …
-data/backups/restic/   nightly restic repository of the NVMe:
-                         /srv/docker/stacks      compose files + every .env.secrets
-                         /srv/docker/volumes     app configs, step-ca keys, Traefik certs
-                         /var/tmp/homelab-backup db/*.sql.gz (pg_dumpall), portainer/, host/
-restic                 restic binary (Linux x86_64)
-restic.pass            repository password
-LAST-COPY              when this disk was last written
+data/                    mirror of the server's /srv/data (ZFS): media, photos, Nextcloud files, …
+data/backups/nvme/       copy of the server's NVMe, made by scripts/backup.sh:
+  db/<date>/*.sql.gz       pg_dumpall of every running Postgres (last 7 days)
+  volumes/                 /srv/docker/volumes: app configs, step-ca CA keys, Traefik certs
+  stacks/                  /srv/docker/stacks: the Git repo + every .env.secrets
+  portainer/               Portainer's own backup + the API token
+  host/                    daemon.json, fstab, network, ZFS layout, package list
+  LAST-BACKUP              when that copy was made
+LAST-COPY                when this disk was last written
 ```
 
-⚠️ Anyone holding this disk can read everything on it, secrets included.
-
-## Look inside
-
-```bash
-D=/mnt/homelab-backup
-export RESTIC_REPOSITORY=$D/data/backups/restic RESTIC_PASSWORD_FILE=$D/restic.pass
-$D/restic snapshots
-$D/restic ls latest /srv/docker/stacks/nextcloud
-```
+⚠️ Not encrypted: anyone holding this disk can read everything on it, secrets included.
 
 ## Rebuild the server
 
-1. Debian 13, Docker Engine + Compose plugin, ZFS, restic.
+`D=/mnt/homelab-backup` (where this disk is mounted).
+
+1. Debian 13 with the `contrib` APT component, then `apt install git rsync`.
 2. **Bulk data.** Pool intact → `zpool import tank`. Pool lost → create it again
-   (`host/zpool-properties.txt` and `host/zfs-properties.txt` in the snapshot show the old layout), then
-   `rsync -aHAX --numeric-ids $D/data/ /srv/data/`.
-3. **NVMe data.** Restore the latest snapshot to its original paths:
+   (`data/backups/nvme/host/zfs-properties.txt` shows the old layout), then
+   `rsync -aH --numeric-ids $D/data/ /srv/data/`.
+3. **Repo, secrets and configs** back to the NVMe:
    ```bash
-   restic restore latest --target / --include /srv/docker
-   restic restore latest --target /tmp/restore --include /var/tmp/homelab-backup
-   install -d -m 700 /etc/homelab && cp $D/restic.pass /etc/homelab/restic.pass
+   rsync -aH --numeric-ids /srv/data/backups/nvme/stacks/  /srv/docker/stacks/
+   rsync -aH --numeric-ids /srv/data/backups/nvme/volumes/ /srv/docker/volumes/
+   cd /srv/docker/stacks && git pull          # newer commits than the backup, if any
    ```
-4. Follow the repo's `playbooks/10-disaster-recovery.md`, scenario C, from step 5.
-   Databases that were running at backup time were skipped as files: load their dumps, below.
+4. Follow the repo's `playbooks/10-disaster-recovery.md`, scenario C, from `host/bootstrap.sh`.
+   Databases that were running at backup time are only in `db/`: load their dumps, below.
 
 ## Load a database dump
 
-Each running Postgres was dumped with `pg_dumpall --clean --if-exists`. With the stack's DB
-container started on an **empty** data directory (app containers stopped):
+Start only the stack's DB container on an **empty** data directory (app containers stopped):
 
 ```bash
-gunzip -c /tmp/restore/var/tmp/homelab-backup/db/<container>.sql.gz \
+gunzip -c /srv/data/backups/nvme/db/<date>/<container>.sql.gz \
   | docker exec -i <container> sh -c 'psql -U "$POSTGRES_USER" -d postgres'
 ```
 

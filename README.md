@@ -20,6 +20,10 @@ with real TLS on every service and resource limits on every container.
 
 > **Design goal:** a single app failure must never take down the host —
 > and turning an app on or off should take one tap.
+>
+> **Rebuild philosophy:** Git + rsync, nothing more. The repo says how the server is built;
+> plain-file copies hold what it stores. No Ansible, no backup software, no extra daemons —
+> this repo and one external disk are enough to rebuild from scratch.
 
 <details>
 <summary><b>📑 Contents</b></summary>
@@ -160,9 +164,10 @@ sequenceDiagram
 ├── resource-limits.yaml            ← reference copy of the resource anchors
 ├── stacks.toml                     ← the Portainer Git stacks and their mode (always-on / on-demand)
 ├── scripts/portainer-stacks.py     ← plan / apply / redeploy those stacks via the Portainer API
-├── scripts/backup.sh               ← nightly: DB dumps + configs + secrets → restic on ZFS
+├── scripts/backup.sh               ← nightly or by hand: DB dumps + rsync of the NVMe → ZFS
 ├── scripts/backup-external.sh      ← by hand: mirror /srv/data to the external HDD
-├── host/systemd/                   ← backup service + timer (copied to /etc/systemd/system)
+├── host/bootstrap.sh               ← idempotent host setup: packages, daemon.json, ZFS, timers, networks, infra
+├── host/systemd/                   ← backup service + timer (installed by bootstrap.sh)
 ├── docker-compose.{traefik,db,socket}.yml   ← snippet templates for new services
 ├── prompt.md                       ← AI-assistant prompt for adding services
 └── <stack>/
@@ -315,10 +320,19 @@ so in a comment.
 
 | Where | What | Protected by |
 |---|---|---|
-| `/srv/data` (ZFS mirror `tank/data`) | media, photos, Nextcloud files, books, documents, Git repos | mirror redundancy + monthly scrub (`zfsutils-linux`) |
-| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | nightly restic snapshot (DB dumps, configs, secrets) → `/srv/data/backups/restic` |
-| `/srv/docker/stacks` | compose files + `.env.secrets` | Git + GitHub; secrets in the nightly snapshot |
-| External HDD | mirror of all of `/srv/data`, nightly repo included | `scripts/backup-external.sh`, run by hand |
+| `/srv/data` (ZFS mirror `tank/data`) | media, photos, Nextcloud files, books, documents, Git repos | mirror redundancy + monthly scrub (`zfs-scrub-monthly@tank.timer`, catches up after downtime) |
+| `/srv/docker/volumes` (NVMe) | configs + **all PostgreSQL databases** | `scripts/backup.sh` (nightly or by hand): DB dumps + rsync → `/srv/data/backups/nvme` |
+| `/srv/docker/stacks` | compose files, scripts, docs + `.env.secrets` | Git + GitHub; secrets copied to `/srv/data/backups/nvme/stacks` |
+| External HDD | rsync mirror of all of `/srv/data`, NVMe backup included | `scripts/backup-external.sh`, run by hand |
+
+```text
+NVMe ──backup.sh: dumps + rsync──► ZFS /srv/data ──backup-external.sh: rsync──► external HDD
+                                                  GitHub: how it's built (compose, scripts, docs)
+```
+
+**Rebuild** = Debian → clone the repo → `host/bootstrap.sh` → rsync the backups back →
+`scripts/portainer-stacks.py apply` ([playbook 10](playbooks/10-disaster-recovery.md#scenario-c--rebuild-the-host)).
+Everything on the disk is plain files: `ls`, `cp` and `rsync` are all a restore needs.
 
 **Rules that keep data safe across stop/start:**
 
