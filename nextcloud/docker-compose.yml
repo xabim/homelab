@@ -134,7 +134,7 @@ services:
       - traefik.http.middlewares.nextcloud-headers.headers.customFrameOptionsValue=SAMEORIGIN
 
       # Redirect .well-known endpoints to proper DAV paths
-      - traefik.http.middlewares.nextcloud-redirect-wellknown.redirectregex.regex=^https://([^/]+)/\\.well-known/(carddav|caldav)$
+      - traefik.http.middlewares.nextcloud-redirect-wellknown.redirectregex.regex=^https://([^/]+)/\.well-known/(carddav|caldav)$
       - traefik.http.middlewares.nextcloud-redirect-wellknown.redirectregex.replacement=https://$${1}/remote.php/dav/
       - traefik.http.middlewares.nextcloud-redirect-wellknown.redirectregex.permanent=true
 

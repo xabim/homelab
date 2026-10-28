@@ -63,8 +63,7 @@ and **isolate problems at the service level**.
 │   ├── navidrome/
 │   ├── nextcloud/
 │   ├── kavita/
-│   ├── musicbrainz-picard/
-│   └── uptime-kuma/
+│   └── musicbrainz-picard/
 │
 └── volumes/                        # Persistent data per service
     ├── traefik/
@@ -338,7 +337,7 @@ volumes:
   - /path/to/root_ca.crt:/usr/local/share/ca-certificates/home-root-ca.crt:ro
 ```
 
-Some applications use environment variables instead (e.g. Node.js apps like Uptime Kuma):
+Some applications use environment variables instead (e.g. Node.js apps like ONLYOFFICE):
 
 ```yaml
 environment:
@@ -417,10 +416,8 @@ Additional hardening:
 
 ## 📊 Observability
 
-* **Uptime Kuma** monitors all internal services via HTTPS
-* Trusts the internal CA (`NODE_EXTRA_CA_CERTS`)
-* Failures are visible before they become critical
-* **Portainer** provides Docker management UI via docker-socket-proxy
+* No alerting stack: this is a small personal setup
+* **Portainer** provides the Docker management UI (logs, stats, start/stop) and talks to the Docker socket directly
 
 ---
 
