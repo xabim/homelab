@@ -6,7 +6,13 @@
 Docker Compose stacks, managed from a phone with Portainer, deployed from Git,
 with real TLS on every service and resource limits on every container.
 
-`Debian 13` · `Docker + Compose` · `Portainer CE` · `Traefik v3` · `step-ca` · `ZFS mirror`
+![Debian](https://img.shields.io/badge/Debian-13-A81D33?logo=debian&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker_Compose-v2-2496ED?logo=docker&logoColor=white)
+![Portainer](https://img.shields.io/badge/Portainer_CE-2.45-13BEF9?logo=portainer&logoColor=white)
+![Traefik](https://img.shields.io/badge/Traefik-v3.6-24A1C1?logo=traefikproxy&logoColor=white)
+![step-ca](https://img.shields.io/badge/PKI-step--ca-EB6100?logo=letsencrypt&logoColor=white)
+![ZFS](https://img.shields.io/badge/Storage-ZFS_mirror-2A6DB0)
+![Stacks](https://img.shields.io/badge/stacks-16-brightgreen)
 
 </div>
 
@@ -15,13 +21,33 @@ with real TLS on every service and resource limits on every container.
 > **Design goal:** a single app failure must never take down the host —
 > and turning an app on or off should take one tap.
 
+<details>
+<summary><b>📑 Contents</b></summary>
+
+- [At a glance](#-at-a-glance)
+- [Architecture](#-architecture)
+- [Service catalog](#-service-catalog)
+- [How a change reaches production](#-how-a-change-reaches-production)
+- [Repository layout](#-repository-layout)
+- [Secrets](#-secrets)
+- [TLS & internal PKI](#-tls--internal-pki)
+- [Networking & DNS](#-networking--dns)
+- [Resource limits & OOM policy](#-resource-limits--oom-policy)
+- [Container hardening](#️-container-hardening)
+- [Storage & data safety](#-storage--data-safety)
+- [Adding a service](#-adding-a-service--checklist)
+- [Documentation & playbooks](#-documentation--playbooks)
+- [Roadmap](#️-roadmap)
+
+</details>
+
 ## ✨ At a glance
 
 | | |
 |---|---|
 | 🖥️ **Host** | Intel i5-12400 · 16 GB RAM · NVMe (OS, configs, databases) · ZFS mirror 2×4 TB (`tank/data` → `/srv/data`) |
 | 📦 **Stacks** | 12 app stacks managed by **Portainer** (from this repo on GitHub) + 4 infrastructure stacks managed by CLI |
-| 🔐 **TLS** | Internal CA (**step-ca**) issues certificates to **Traefik** over ACME — every `*.home` URL is real HTTPS |
+| 🔐 **TLS** | Internal CA (**step-ca**) issues 30-day certificates to **Traefik** over ACME — every `*.home` URL is real HTTPS · [deep dive](docs/tls.md) |
 | 🌐 **DNS** | **Pi-hole** on a separate device (`192.168.1.100`) resolves `*.home` → `192.168.1.101` |
 | 📱 **Ops** | Start/stop/logs/restart from a phone at `https://portainer.home` |
 | 📖 **Runbooks** | Everything operational lives in [`playbooks/`](playbooks/README.md) |
@@ -129,6 +155,7 @@ sequenceDiagram
 ```text
 /srv/docker/stacks/                 ← this repo (github.com/xabim/homelab)
 ├── README.md
+├── docs/                           ← deep dives (TLS & PKI)
 ├── playbooks/                      ← operational runbooks
 ├── .env.global                     ← TZ, PUID/PGID, base paths (shared by all stacks)
 ├── resource-limits.yaml            ← reference copy of the resource anchors
@@ -161,13 +188,49 @@ sequenceDiagram
 
 ---
 
-## 🌐 Networking, DNS & TLS
+## 🔏 TLS & internal PKI
+
+The most interesting piece of the infrastructure: a **private Certificate Authority** issuing real,
+short-lived certificates — fully automated, like Let's Encrypt, but on the LAN.
+
+```mermaid
+flowchart LR
+    subgraph pki["step-ca · ca.home:9000"]
+        root["🏛️ Root CA<br/><i>until 2035</i>"] -- signs --> inter["🏢 Intermediate CA<br/><i>until 2035</i>"]
+        acme["ACME provisioner<br/><code>traefik-acme</code><br/>30-day certs"]
+        inter --- acme
+    end
+    traefik["🚦 Traefik<br/>ACME client<br/><code>acme-stepca.json</code>"]
+    pihole["Pi-hole<br/>*.home → .101"]
+    device["💻📱 Devices<br/>trust the root"]
+
+    traefik -- "1 · order cert for app.home" --> acme
+    acme -- "2 · resolve app.home" --> pihole
+    acme -- "3 · HTTP-01 check on :80" --> traefik
+    acme -- "4 · signed leaf (30 d)" --> traefik
+    device -- "HTTPS app.home" --> traefik
+    device -. "chain verifies to" .-> root
+```
+
+| | |
+|---|---|
+| **CA** | step-ca, root + intermediate *marxa CA* (valid until 2035-12-25) |
+| **Protocol** | ACME, HTTP-01 challenge on Traefik's `:80` entrypoint |
+| **Leaf lifetime** | 30 days, renewed automatically by Traefik |
+| **Trust anchor** | `/srv/docker/volumes/step-ca/certs/root_ca.crt` — install it once per device |
+| **Golden rule** | a hostname needs a **Pi-hole record before** it can get a certificate |
+
+📖 **How it works, end to end:** [`docs/tls.md`](docs/tls.md) ·
+🛠️ **Tasks** (trust a device, inspect, add a host, troubleshoot, back up the CA):
+[`playbooks/12-tls-certificates.md`](playbooks/12-tls-certificates.md)
+
+---
+
+## 🌐 Networking & DNS
 
 ```text
  client ──DNS──► Pi-hole (192.168.1.100): *.home → 192.168.1.101
  client ──443──► Traefik ──(Host rule from container labels)──► app container
-                    │
-                    └── certificates via ACME from step-ca (ca.home:9000)
 ```
 
 * **Networks:** `proxy` (Traefik ↔ apps) and `dockersock` (socket proxy) are **external** —
@@ -175,11 +238,12 @@ sequenceDiagram
   its own private network (`immich_immich`, `nextcloud_internal`, `paperless_default`, …).
 * **Routing:** declared per service with Traefik labels — ``Host(`app.home`)``, `websecure`,
   `certresolver=stepca`.
-* **Trusting the CA:** containers that call other `*.home` services mount
-  `/srv/docker/volumes/step-ca/certs/root_ca.crt` (or use `NODE_EXTRA_CA_CERTS` for Node apps).
+* **Trusting the CA:** containers that call other `*.home` services mount the root
+  (or use `NODE_EXTRA_CA_CERTS` for Node apps) — see [docs/tls.md § 5](docs/tls.md#5-who-trusts-the-root).
 * **Port fallback:** Traefik publishes `:9001`–`:9006`, `:9008` and `:9010` for access by IP when DNS is down
   (routers in `/srv/docker/volumes/traefik/dynamic/port-routing.yml`).
 * **New hostname?** Add it to Pi-hole — Traefik and step-ca do the rest.
+* **IP fallback ports** serve Traefik's default certificate (no hostname to match) — expect a browser warning there.
 
 ### Docker API access
 
@@ -280,7 +344,11 @@ so in a comment.
 
 ---
 
-## 📖 Playbooks
+## 📖 Documentation & playbooks
+
+**Deep dives:** [🔐 TLS & internal PKI](docs/tls.md)
+
+**Playbooks** — [index & ground rules](playbooks/README.md):
 
 | # | Playbook | Use it when… |
 |---|---|---|
@@ -295,6 +363,24 @@ so in a comment.
 | 09 | [Troubleshooting](playbooks/09-troubleshooting.md) | something doesn't load |
 | 10 | [Disaster recovery](playbooks/10-disaster-recovery.md) | Portainer, Git or the host is gone |
 | 11 | [Health check](playbooks/11-health-check.md) | monthly once-over |
+| 12 | [TLS & certificates](playbooks/12-tls-certificates.md) | certificate warnings, new hostnames, CA work |
+
+---
+
+## 🗺️ Roadmap
+
+| Status | Item |
+|:---:|---|
+| ✅ | Compose stacks managed from Portainer (Git-backed, phone-friendly) |
+| ✅ | Internal PKI with automatic 30-day certificates |
+| ✅ | Resource limits + OOM priorities on every container |
+| ✅ | Operational playbooks |
+| ⏳ | Tell Traefik the real cert lifetime (`certificatesDuration: 720`) — [playbook 12 § 8](playbooks/12-tls-certificates.md#8-tell-traefik-the-real-certificate-lifetime) |
+| ⏳ | Clean stale hostnames from the ACME store — [playbook 12 § 9](playbooks/12-tls-certificates.md#9-remove-stale-certificates--force-re-issue) |
+| 📋 | **Automated, off-host backups** of databases + `/srv/docker/volumes` |
+| 📋 | Pin floating image tags (`step-ca:latest`, `immich:release`, …) |
+| 📋 | Optional: auth on the Traefik dashboard, offline root CA key |
+| 💡 | Move to SSD-only, lower-power hardware |
 
 ---
 

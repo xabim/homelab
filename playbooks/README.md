@@ -16,6 +16,9 @@ Short, copy-pasteable runbooks for operating the homelab. Each one says **when**
 | 09 | [Troubleshooting](09-troubleshooting.md) | 🟢 read-only first | — |
 | 10 | [Disaster recovery](10-disaster-recovery.md) | 🔴 | 1–3 h |
 | 11 | [Health check](11-health-check.md) | 🟢 read-only | 10 min |
+| 12 | [TLS & certificates](12-tls-certificates.md) | 🟢 tasks 1–7 · 🟡 8–9 · 🔴 10 | 5–15 min |
+
+Deep dive: [🔐 TLS & internal PKI](../docs/tls.md)
 
 ## Ground rules
 
