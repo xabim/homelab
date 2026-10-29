@@ -58,6 +58,7 @@ services:
         check_tables: true
         domain: ${INVIDIOUS_FQDN}
         https_only: true
+        external_port: 443
         invidious_companion:
           - private_url: "http://companion:8282/companion"
         invidious_companion_key: "${SERVER_SECRET_KEY}"
