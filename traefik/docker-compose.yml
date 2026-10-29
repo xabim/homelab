@@ -45,6 +45,7 @@ services:
       - ${TRAEFIK_ROOT_CA}:/etc/ssl/step/root_ca.crt:ro
       - ${TRAEFIK_ROOT_CA}:/usr/local/share/ca-certificates/step-root-ca.crt:ro
       - ${TRAEFIK_DYNAMIC_VOL}:/etc/traefik/dynamic:ro
+      - ./plugins-local:/plugins-local:ro
     networks:
       - proxy
       - dockersock

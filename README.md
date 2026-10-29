@@ -252,6 +252,10 @@ flowchart LR
   (or use `NODE_EXTRA_CA_CERTS` for Node apps) — see [docs/tls.md § 5](docs/tls.md#5-who-trusts-the-root).
 * **Port fallback:** Traefik publishes `:9001`–`:9006`, `:9008` and `:9010` for access by IP when DNS is down
   (routers in `/srv/docker/volumes/traefik/dynamic/port-routing.yml`).
+* **Stopped service:** a lowest-priority catch-all router (`dynamic/fallback.yml`) answers any host
+  with no live router with a 503 page linking to Portainer — rendered inside Traefik by the local
+  plugin in `traefik/plugins-local/` (no extra container). Dynamic files are Go templates, so the
+  page uses `%HOST%`, never `{{…}}`.
 * **New hostname?** Add it to Pi-hole — Traefik and step-ca do the rest.
 * **IP fallback ports** serve Traefik's default certificate (no hostname to match) — expect a browser warning there.
 

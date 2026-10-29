@@ -8,7 +8,7 @@ In Portainer they show as *Limited* — fine for logs and restarts, never edit t
 
 | Stack | Config in Git | Config outside Git |
 |---|---|---|
-| `traefik` | `traefik/docker-compose.yml`, `.env` | `/srv/docker/volumes/traefik/traefik.yml` (static), `dynamic/*.yml` (hot-reloaded), `certs/` |
+| `traefik` | `traefik/docker-compose.yml`, `.env`, `plugins-local/` (down-page plugin) | `/srv/docker/volumes/traefik/traefik.yml` (static), `dynamic/*.yml` (hot-reloaded), `certs/` |
 | `step-ca` | `step-ca/docker-compose.yml`, `.env` | `/srv/docker/volumes/step-ca/` (CA keys — **back up, never commit**) |
 | `docker-socket-proxy` | `docker-socket-proxy/docker-compose.yml`, `.env` (API permissions) | — |
 | `portainer` | `portainer/docker-compose.yml`, `.env` | `/srv/docker/volumes/portainer/data` (stacks, users, tokens) |
@@ -22,6 +22,8 @@ cp -a /srv/docker/volumes/traefik/dynamic /srv/data/backups/traefik-dynamic-$(da
 $EDITOR /srv/docker/volumes/traefik/dynamic/<file>.yml
 docker logs --since 1m traefik 2>&1 | grep ERR
 ```
+
+Dynamic files are rendered as Go templates: a literal `{{` breaks **all** of them (`function "…" not defined`).
 
 ## Change compose / static config (restart needed)
 

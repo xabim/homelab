@@ -1,0 +1,6 @@
+displayName: Down page
+type: middleware
+import: github.com/xabim/downpage
+summary: Answers every request with a fixed HTML page (503); used as the fallback when a service is down.
+testData:
+  body: "<h1>%HOST% is not running</h1>"
