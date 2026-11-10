@@ -38,8 +38,16 @@ DATABASES=(
 # SQLite apps: a copy taken while they run may be inconsistent
 SQLITE_APPS=(navidrome kavita jellyfin)
 
+# AI Studio (ai-studio repository): Paperclip runs an EMBEDDED PostgreSQL
+# and writes its own hourly dumps to instances/default/data/backups. While it
+# runs, its live db directory is skipped (the dumps cover it); when the stack is
+# stopped the directory is consistent and copied as files.
+AI_STUDIO_CONTAINER=ai-studio-paperclip-1
+AI_STUDIO_DB=ai-studio/paperclip/instances/default/db
+
 # Relative to /srv/docker/volumes; rebuilt by the apps, not worth copying
-EXCLUDES=(jellyfin/cache immich/ml-cache immich/logs onlyoffice/logs '*/redis' forgejo/postgres_pg15_backup)
+EXCLUDES=(jellyfin/cache immich/ml-cache immich/logs onlyoffice/logs '*/redis' forgejo/postgres_pg15_backup
+          ai-studio/ci-runner/work ai-studio/ci-runner/cache)
 
 log()  { echo "[backup] $*"; }
 warn() { echo "[backup] WARNING: $*" >&2; }
@@ -83,6 +91,11 @@ rmdir "$today" 2>/dev/null || true
 for app in "${SQLITE_APPS[@]}"; do
   running "$app" && warn "$app is running: its SQLite copy may be inconsistent"
 done
+
+if running "$AI_STUDIO_CONTAINER"; then
+  log "ai-studio running: skipping its live embedded DB (hourly dumps are copied instead)"
+  EXCLUDES+=("$AI_STUDIO_DB")
+fi
 
 # --- Portainer (its own backup; portainer.db must not be copied while open) ---
 if curl -fsS -X POST -H @"$PORTAINER_TOKEN_FILE" -H 'Content-Type: application/json' \
