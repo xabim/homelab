@@ -43,6 +43,10 @@ mode = "on-demand"
 [stacks.forgejo]
 mode = "on-demand"
 
+# Image is built on the host first (forgejo-runner/README.md).
+[stacks.forgejo-runner]
+mode = "on-demand"
+
 [stacks.musicbrainz-picard]
 mode = "on-demand"
 

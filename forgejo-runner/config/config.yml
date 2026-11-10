@@ -1,0 +1,29 @@
+# Forgejo runner configuration for the AI Studio CI runner (runner v13.2.0).
+# Mounted read-only; registration state lives in /data/.runner (volume).
+log:
+  level: info
+  job_level: info
+
+runner:
+  file: /data/.runner
+  # One job at a time: CI never competes with an agent run for the CPU.
+  capacity: 1
+  timeout: 1h
+  shutdown_timeout: 10m
+  insecure: false
+  fetch_timeout: 30s
+  # Light polling of Forgejo while the stack runs (no LLM involved).
+  fetch_interval: 10s
+  report_interval: 2s
+  # Jobs with `runs-on: ai-studio-ci` execute inside this container.
+  # `runs-on: ai-studio-ci` in existing workflows; add labels here, never rename
+  # without updating every workflow.
+  labels:
+    - "ai-studio-ci:host"
+
+cache:
+  enabled: true
+  dir: /data/cache
+
+host:
+  workdir_parent: /data/work

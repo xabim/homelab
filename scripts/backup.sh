@@ -48,7 +48,7 @@ PAPERCLIP_CLI=(node cli/node_modules/tsx/dist/cli.mjs cli/src/index.ts)   # = `p
 
 # Relative to /srv/docker/volumes; rebuilt by the apps, not worth copying
 EXCLUDES=(jellyfin/cache immich/ml-cache immich/logs onlyoffice/logs '*/redis' forgejo/postgres_pg15_backup
-          ai-studio/ci-runner/work ai-studio/ci-runner/cache)
+          forgejo-runner/work forgejo-runner/cache)
 
 log()  { echo "[backup] $*"; }
 warn() { echo "[backup] WARNING: $*" >&2; }

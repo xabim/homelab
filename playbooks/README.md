@@ -53,6 +53,7 @@ BK=/srv/data/backups/$(date +%Y%m%d)                            # backup target
 | `jellyfin` | Portainer | on-demand | jellyfin | SQLite |
 | `navidrome` | Portainer | on-demand | navidrome | SQLite |
 | `forgejo` | Portainer | on-demand | forgejo-forgejo-1, forgejo-db-1 | PostgreSQL 18 |
+| `forgejo-runner` | Portainer | on-demand | forgejo-runner-runner-1 ([notes](../forgejo-runner/README.md)) | — |
 | `musicbrainz-picard` | Portainer | on-demand | musicbrainz-picard-picard-1 | — |
 | `yubal` | Portainer | on-demand | yubal | — |
 | `homepage` | Portainer | on-demand | homepage | — |

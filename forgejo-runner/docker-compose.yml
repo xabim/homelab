@@ -1,0 +1,62 @@
+# =============================================================================
+# Forgejo runner - Forgejo Actions CI for repositories on forgejo.home
+#
+# Mode:  on-demand (start/stop from Portainer; stays off after reboot)
+# URL:   none (polls https://forgejo.home)
+# Data:  /srv/docker/volumes/forgejo-runner   (.runner registration, cache, job workdirs)
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main).
+#         The image is built on the host first: see forgejo-runner/README.md.
+#
+# Security model:
+#   * jobs run in "host" mode = inside this container. No Docker socket, no
+#     Docker-in-Docker, no privileged mode, all capabilities dropped.
+#   * capacity 1, own bridge network, no homelab mounts except the CA root.
+#   * host-mode jobs can read the runner's registration: register it on one
+#     Forgejo organization only and give CI no secrets.
+# =============================================================================
+
+# Anchors copied from ../resource-limits.yaml (only referenced)
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  runner:
+    image: homelab/forgejo-runner:${RUNNER_VERSION}-pw${PLAYWRIGHT_VERSION}
+    # Built on the host (README "Build the image"); never pulled.
+    build:
+      context: ./image
+      args:
+        RUNNER_VERSION: ${RUNNER_VERSION}
+        PLAYWRIGHT_VERSION: ${PLAYWRIGHT_VERSION}
+    pull_policy: never
+    user: "${PUID}:${PGID}"
+    env_file:
+      - ../.env.global
+    environment:
+      HOME: /data
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      CI: "true"
+    volumes:
+      - /srv/docker/volumes/forgejo-runner:/data
+      - /srv/docker/stacks/forgejo-runner/config/config.yml:/etc/forgejo-runner/config.yml:ro
+      - /srv/docker/volumes/step-ca/certs/root_ca.crt:/etc/ssl/homelab/root_ca.crt:ro
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+    networks:
+      - ci
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Builds and headless browser tests: larger than the resource-limits.yaml tiers
+    mem_limit: ${CI_MEM_LIMIT}
+    mem_reservation: 256m
+    cpus: ${CI_CPUS}
+    pids_limit: 1024
+    <<: *resource_service
+
+networks:
+  ci:
+    driver: bridge
