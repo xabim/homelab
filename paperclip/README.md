@@ -19,7 +19,7 @@ one or many organizations, and contains nothing specific to any of them.
 |---|---|---|
 | Paperclip deployment, persistence, networking, backups | this directory | `github.com/xabim/homelab` |
 | Live organizations, agents, skills, projects, tasks, runs | **Paperclip's database** + `home/` | `/srv/docker/volumes/paperclip` |
-| Versioned snapshots of stable organization configs | official Paperclip exports | private Forgejo repo `paperclip-organizations` |
+| Versioned snapshots of stable organization configs | official Paperclip exports | Forgejo repo `paperclip-organizations` |
 | Software projects | their own repositories | Forgejo |
 
 Paperclip never reads the `paperclip-organizations` repository; exports and imports are

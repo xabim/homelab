@@ -16,7 +16,7 @@
 #
 # Organizations (companies), agents, skills, projects and tasks are NOT defined
 # here. They live in Paperclip's database; versioned exports are kept in the
-# private Forgejo repository `paperclip-organizations`.
+# Forgejo repository `paperclip-organizations`.
 #
 # Networks:
 #   proxy   external, shared with Traefik. ONLY the ingress relay joins it.
