@@ -51,3 +51,7 @@ mode = "on-demand"
 
 [stacks.homepage]
 mode = "on-demand"
+
+# Image is built on the host first (paperclip/README.md "Build the image").
+[stacks.paperclip]
+mode = "on-demand"

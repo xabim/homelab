@@ -117,6 +117,7 @@ flowchart LR
 | 🏷️ [MusicBrainz Picard](https://picard.musicbrainz.org) | https://picard.home | on-demand | `musicbrainz-picard` | — |
 | 🎧 [Yubal](https://github.com/guillevc/yubal) | https://yubal.home | on-demand | `yubal` | — |
 | 🧭 [Homepage](https://gethomepage.dev) | https://homepage.home | on-demand | `homepage` | `:9003` |
+| 📎 [Paperclip](https://github.com/paperclipai/paperclip) (AI agents, [notes](paperclip/README.md)) | https://paperclip.home | on-demand | `paperclip` | — |
 | 🐳 [Portainer](https://www.portainer.io) | https://portainer.home | infra | `portainer` (CLI) | `:9001` |
 | 🚦 [Traefik](https://traefik.io/traefik/) dashboard | — (no DNS record) | infra | `traefik` (CLI) | `:9004` |
 | 🔏 [step-ca](https://smallstep.com/docs/step-ca/) | https://ca.home:9000 | infra | `step-ca` (CLI) | `:9000` |

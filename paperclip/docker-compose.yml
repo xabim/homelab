@@ -1,0 +1,262 @@
+# =============================================================================
+# Paperclip - AI agent control plane (https://github.com/paperclipai/paperclip)
+#
+# Mode:  on-demand (start/stop from Portainer; stays off after reboot).
+#        Starting the stack never starts an agent run by itself: whether agents
+#        wake up is per-agent configuration stored in Paperclip's database
+#        (see paperclip/README.md "Execution policy").
+# URL:   https://paperclip.home  (internal only, step-ca TLS through Traefik)
+# Data:  /srv/docker/volumes/paperclip/home        PAPERCLIP_HOME: embedded
+#                                                  PostgreSQL, its dumps,
+#                                                  secrets master key, uploads,
+#                                                  run logs, Claude Code state
+#        /srv/docker/volumes/paperclip/workspaces  project checkouts used by agents
+# Deploy: Portainer Git stack from github.com/xabim/homelab (main).
+#         The image is built on the host first: see paperclip/README.md.
+#
+# Organizations (companies), agents, skills, projects and tasks are NOT defined
+# here. They live in Paperclip's database; versioned exports are kept in the
+# private Forgejo repository `paperclip-organizations`.
+#
+# Networks:
+#   proxy   external, shared with Traefik. ONLY the ingress relay joins it.
+#   app     internal: ingress relay <-> paperclip
+#   egress  internal: paperclip -> egress-proxy (its only way out)
+#   out     bridge:   egress-proxy / forgejo-gw -> internet and forgejo.home
+#   forge   internal: paperclip -> forgejo-gw (Paperclip plugin workers only)
+# =============================================================================
+
+# Anchors copied from ../resource-limits.yaml (only the ones referenced)
+x-resource-xsmall: &resource_xsmall
+  mem_limit: 128m
+  mem_reservation: 32m
+  cpus: 0.25
+  pids_limit: 128
+
+x-resource-small: &resource_small
+  mem_limit: 256m
+  mem_reservation: 64m
+  cpus: 0.5
+  pids_limit: 256
+
+x-resource-service: &resource_service
+  stop_grace_period: 30s
+  oom_score_adj: 200
+
+services:
+  # ---------------------------------------------------------------------------
+  # Paperclip server + the Claude Code CLI it spawns for agent runs.
+  # The container is the agent sandbox: non-root, no capabilities, no Docker
+  # socket, no homelab mounts, internal networks only.
+  # ---------------------------------------------------------------------------
+  paperclip:
+    image: homelab/paperclip:${PAPERCLIP_VERSION}-pw${PLAYWRIGHT_VERSION}
+    # Built on the host (README "Build the image"); never pulled.
+    build:
+      context: ./image
+      args:
+        PAPERCLIP_IMAGE: ghcr.io/paperclipai/paperclip:${PAPERCLIP_VERSION}
+        PLAYWRIGHT_VERSION: ${PLAYWRIGHT_VERSION}
+    pull_policy: never
+    # Unprivileged from the start: the upstream entrypoint then skips
+    # usermod/chown/gosu and execs the server directly.
+    user: "${PUID}:${PGID}"
+    env_file:
+      - ../.env.global
+      - .env
+      # BETTER_AUTH_SECRET, PAPERCLIP_TOOL_ACTION_SIGNING_SECRET,
+      # CLAUDE_CODE_OAUTH_TOKEN, FORGEJO_BOT_USER, FORGEJO_BOT_TOKEN
+      - /srv/docker/stacks/paperclip/.env.secrets
+    environment:
+      HOME: /paperclip
+      PAPERCLIP_HOME: /paperclip
+      PAPERCLIP_DEPLOYMENT_MODE: authenticated
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: private
+      PAPERCLIP_PUBLIC_URL: https://${PAPERCLIP_HOSTNAME}
+      # Agents call Paperclip's API from inside this container, where the
+      # public URL has no route (the egress proxy refuses it). Paperclip
+      # preserves an externally set PAPERCLIP_API_URL.
+      PAPERCLIP_API_URL: http://127.0.0.1:3100
+      HOST: 0.0.0.0
+      PORT: "3100"
+      SERVE_UI: "true"
+      PAPERCLIP_TELEMETRY_DISABLED: "1"
+      DO_NOT_TRACK: "1"
+      # Embedded PostgreSQL (no DATABASE_URL). Paperclip writes its own dumps
+      # to /paperclip/instances/default/data/backups; scripts/backup.sh takes a
+      # fresh one at backup time and copies them off the NVMe.
+      PAPERCLIP_DB_BACKUP_ENABLED: "true"
+      PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES: "60"
+      PAPERCLIP_DB_BACKUP_RETENTION_DAYS: "7"
+      # --- Egress: everything leaves through the allowlisting proxy ---------
+      HTTP_PROXY: http://egress-proxy:3128
+      HTTPS_PROXY: http://egress-proxy:3128
+      http_proxy: http://egress-proxy:3128
+      https_proxy: http://egress-proxy:3128
+      NO_PROXY: localhost,127.0.0.1,::1
+      no_proxy: localhost,127.0.0.1,::1
+      NODE_USE_ENV_PROXY: "1"
+      # --- Trust the homelab step-ca root (forgejo.home) for Node and git ---
+      NODE_EXTRA_CA_CERTS: /etc/ssl/homelab/root_ca.crt
+      # --- Claude Code: subscription token (CLAUDE_CODE_OAUTH_TOKEN) comes
+      # from .env.secrets. ANTHROPIC_API_KEY must NEVER be set: it takes
+      # precedence and bills the pay-as-you-go API instead.
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+      DISABLE_AUTOUPDATER: "1"
+      DISABLE_TELEMETRY: "1"
+      DISABLE_ERROR_REPORTING: "1"
+      ENABLE_CLAUDEAI_MCP_SERVERS: "false"
+      # --- Git: Forgejo bot token (.env.secrets) via an env-only credential
+      # helper; nothing lands in .git/config or on a command line.
+      GIT_CONFIG_COUNT: "4"
+      GIT_CONFIG_KEY_0: credential.https://${FORGEJO_HOSTNAME}.helper
+      GIT_CONFIG_VALUE_0: '!f() { echo "username=$${FORGEJO_BOT_USER}"; echo "password=$${FORGEJO_BOT_TOKEN}"; }; f'
+      GIT_CONFIG_KEY_1: http.https://${FORGEJO_HOSTNAME}/.sslCAInfo
+      GIT_CONFIG_VALUE_1: /etc/ssl/homelab/root_ca.crt
+      GIT_CONFIG_KEY_2: init.defaultBranch
+      GIT_CONFIG_VALUE_2: main
+      GIT_CONFIG_KEY_3: safe.directory
+      GIT_CONFIG_VALUE_3: "*"
+      FORGEJO_URL: https://${FORGEJO_HOSTNAME}
+    volumes:
+      - /srv/docker/volumes/paperclip/home:/paperclip
+      - /srv/docker/volumes/paperclip/workspaces:/workspaces
+      - /srv/docker/volumes/step-ca/certs/root_ca.crt:/etc/ssl/homelab/root_ca.crt:ro
+      # Claude Code managed settings: deny rules no agent or repository can override
+      - /srv/docker/stacks/paperclip/config/claude/managed-settings.json:/etc/claude-code/managed-settings.json:ro
+      - /srv/docker/stacks/paperclip/config/claude/git-policy-${AGENT_GIT_POLICY}.json:/etc/claude-code/managed-settings.d/50-git-policy.json:ro
+    tmpfs:
+      - /tmp:size=2g,mode=1777
+    networks:
+      - app
+      - egress
+      - forge
+    # Paperclip plugin workers start with an empty environment (no proxy, no
+    # homelab CA), so inside this container forgejo.home resolves to the
+    # forgejo-gw relay (plugin URL http://forgejo.home:3129). Agents' git and
+    # Node traffic still goes through HTTPS_PROXY, where squid resolves it.
+    extra_hosts:
+      - "${FORGEJO_HOSTNAME}:172.31.251.2"
+    depends_on:
+      - egress-proxy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS --noproxy '*' http://127.0.0.1:3100/api/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Agent runs (Claude Code + npm + headless Chromium) and the embedded
+    # database share this container, so it gets its own larger tier (.env).
+    mem_limit: ${PAPERCLIP_MEM_LIMIT}
+    mem_reservation: 512m
+    cpus: ${PAPERCLIP_CPUS}
+    pids_limit: 2048
+    # Upstream: 90s covers the adapter-settlement window, run cleanup and a
+    # clean shutdown of the embedded PostgreSQL.
+    stop_grace_period: 90s
+    oom_score_adj: 300
+
+  # ---------------------------------------------------------------------------
+  # Egress proxy: the ONLY path out. Domain allowlist in config/egress/.
+  # ---------------------------------------------------------------------------
+  egress-proxy:
+    image: ubuntu/squid:6.6-24.04_edge
+    volumes:
+      - /srv/docker/stacks/paperclip/config/egress/squid.conf:/etc/squid/squid.conf:ro
+      - /srv/docker/stacks/paperclip/config/egress/allowlist.txt:/etc/squid/allowlist.txt:ro
+    # squid starts as root and drops to `proxy` (uid 13), which owns these.
+    tmpfs:
+      - /var/spool/squid:uid=13,gid=13,mode=0755
+      - /var/log/squid:uid=13,gid=13,mode=0755
+      - /run
+    networks:
+      - egress
+      - out
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Needed for squid's own privilege drop to `proxy`.
+    cap_add:
+      - SETUID
+      - SETGID
+      - CHOWN
+    <<: [*resource_small, *resource_service]
+
+  # ---------------------------------------------------------------------------
+  # Forgejo gateway for Paperclip plugin workers (they cannot use the egress
+  # proxy). Plain HTTP in on the internal `forge` network, verified TLS out to
+  # https://forgejo.home only (homelab root CA, name check, SNI).
+  # Not needed if no Forgejo plugin is installed in Paperclip.
+  # ---------------------------------------------------------------------------
+  forgejo-gw:
+    image: alpine/socat:1.8.0.3
+    command:
+      - TCP-LISTEN:3129,fork,reuseaddr
+      - OPENSSL:${FORGEJO_HOSTNAME}:443,cafile=/etc/ssl/homelab/root_ca.crt,verify=1,commonname=${FORGEJO_HOSTNAME},snihost=${FORGEJO_HOSTNAME}
+    user: "65534:65534"
+    read_only: true
+    volumes:
+      - /srv/docker/volumes/step-ca/certs/root_ca.crt:/etc/ssl/homelab/root_ca.crt:ro
+    networks:
+      forge:
+        ipv4_address: 172.31.251.2
+      out: {}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    <<: [*resource_xsmall, *resource_service]
+
+  # ---------------------------------------------------------------------------
+  # Ingress relay: the only container on the shared `proxy` network. Traefik
+  # terminates TLS (step-ca) and forwards to this plain TCP relay, so the
+  # agent sandbox never sits next to Portainer, Nextcloud, etc.
+  # ---------------------------------------------------------------------------
+  ingress:
+    image: alpine/socat:1.8.0.3
+    command: ["TCP-LISTEN:3100,fork,reuseaddr", "TCP:paperclip:3100"]
+    user: "65534:65534"
+    read_only: true
+    networks:
+      - proxy
+      - app
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.paperclip.rule=Host(`${PAPERCLIP_HOSTNAME}`)
+      - traefik.http.routers.paperclip.entrypoints=websecure
+      - traefik.http.routers.paperclip.tls=true
+      - traefik.http.routers.paperclip.tls.certresolver=stepca
+      - traefik.http.services.paperclip.loadbalancer.server.port=3100
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    <<: [*resource_xsmall, *resource_service]
+
+networks:
+  proxy:
+    external: true
+  app:
+    internal: true
+  egress:
+    internal: true
+  out:
+    driver: bridge
+  # Fixed subnet: forgejo-gw's address is pinned as forgejo.home above.
+  # (172.31.250.0/29 is used by the old ai-studio stack; keep them distinct
+  # so both can exist during a migration/rollback.)
+  forge:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.251.0/29

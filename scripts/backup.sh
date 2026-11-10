@@ -38,12 +38,13 @@ DATABASES=(
 # SQLite apps: a copy taken while they run may be inconsistent
 SQLITE_APPS=(navidrome kavita jellyfin)
 
-# AI Studio (ai-studio repository): Paperclip runs an EMBEDDED PostgreSQL
-# and writes its own hourly dumps to instances/default/data/backups. While it
-# runs, its live db directory is skipped (the dumps cover it); when the stack is
-# stopped the directory is consistent and copied as files.
-AI_STUDIO_CONTAINER=ai-studio-paperclip-1
-AI_STUDIO_DB=ai-studio/paperclip/instances/default/db
+# Paperclip (paperclip/ stack) runs an EMBEDDED PostgreSQL. While it runs, a
+# fresh dump is taken with Paperclip's own `db:backup` (into its backups dir,
+# next to the hourly ones) and the live db directory is skipped; when the stack
+# is stopped the directory is consistent and copied as files.
+PAPERCLIP_CONTAINER=paperclip-paperclip-1
+PAPERCLIP_DB=paperclip/home/instances/default/db
+PAPERCLIP_CLI=(node cli/node_modules/tsx/dist/cli.mjs cli/src/index.ts)   # = `pnpm paperclipai` in /app
 
 # Relative to /srv/docker/volumes; rebuilt by the apps, not worth copying
 EXCLUDES=(jellyfin/cache immich/ml-cache immich/logs onlyoffice/logs '*/redis' forgejo/postgres_pg15_backup
@@ -92,9 +93,13 @@ for app in "${SQLITE_APPS[@]}"; do
   running "$app" && warn "$app is running: its SQLite copy may be inconsistent"
 done
 
-if running "$AI_STUDIO_CONTAINER"; then
-  log "ai-studio running: skipping its live embedded DB (hourly dumps are copied instead)"
-  EXCLUDES+=("$AI_STUDIO_DB")
+if running "$PAPERCLIP_CONTAINER"; then
+  log "dump paperclip (embedded PostgreSQL)"
+  if ! docker exec -w /app "$PAPERCLIP_CONTAINER" timeout 600 "${PAPERCLIP_CLI[@]}" \
+       db:backup --retention-days 7 --filename-prefix paperclip >/dev/null 2>&1; then
+    warn "paperclip db:backup failed: only its hourly dumps are copied"
+  fi
+  EXCLUDES+=("$PAPERCLIP_DB")
 fi
 
 # --- Portainer (its own backup; portainer.db must not be copied while open) ---

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git -C * commit*)",
+      "Bash(git -C * push*)",
+      "Bash(git merge*)",
+      "Bash(git rebase*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean*)",
+      "Bash(git stash drop*)",
+      "Bash(git branch -D*)",
+      "Bash(git worktree remove*)",
+      "Bash(gitf push*)",
+      "Bash(gitf -C * push*)"
+    ]
+  }
+}

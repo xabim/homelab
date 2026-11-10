@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(//paperclip/instances/**/secrets/**)",
+      "Read(//paperclip/instances/**/config.json)",
+      "Read(//proc/*/environ)",
+      "Read(**/.env.secrets)",
+      "Bash(printenv*)",
+      "Bash(env)",
+      "Bash(git config --global *)",
+      "Bash(git remote set-url *)",
+      "Bash(git remote add *)",
+      "Bash(npm publish*)",
+      "Bash(wrangler deploy*)",
+      "Bash(butler push*)",
+      "Bash(npx wrangler*deploy*)",
+      "Bash(npx --yes wrangler*)",
+      "Bash(npx -y wrangler*)",
+      "Bash(*wrangler* deploy*)",
+      "Bash(*wrangler* versions upload*)",
+      "Bash(*butler* push*)",
+      "Read(//paperclip/instances/**/.env)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "DISABLE_AUTOUPDATER": "1",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1"
+  }
+}

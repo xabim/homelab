@@ -1,0 +1,21 @@
+# Domains reachable from the Paperclip container (squid dstdomain syntax: a
+# leading dot matches the domain and every subdomain). One entry per line.
+# Reload after editing (README "Egress allowlist").
+# Keep this list short: every entry widens what an agent can talk to.
+
+# --- Claude Code (https://code.claude.com/docs/en/network-config) ---
+api.anthropic.com
+claude.ai
+claude.com
+platform.claude.com
+
+# --- npm registry (dependency installs in project repositories) ---
+registry.npmjs.org
+
+# --- Homelab Forgejo (through Traefik) ---
+forgejo.home
+
+# --- Optional, commented out on purpose ---
+# github.com            # npm packages that download release binaries
+# codeload.github.com
+# objects.githubusercontent.com

@@ -56,6 +56,7 @@ BK=/srv/data/backups/$(date +%Y%m%d)                            # backup target
 | `musicbrainz-picard` | Portainer | on-demand | musicbrainz-picard-picard-1 | — |
 | `yubal` | Portainer | on-demand | yubal | — |
 | `homepage` | Portainer | on-demand | homepage | — |
+| `paperclip` | Portainer | on-demand | paperclip-paperclip-1, paperclip-egress-proxy-1, paperclip-forgejo-gw-1, paperclip-ingress-1 | embedded PostgreSQL ([backup/restore](../paperclip/README.md#backups)) |
 | `traefik` | CLI | infra | traefik | — |
 | `step-ca` | CLI | infra | step-ca | — |
 | `docker-socket-proxy` | CLI | infra | docker-socket-proxy | — |
