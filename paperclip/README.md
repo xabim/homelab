@@ -224,11 +224,11 @@ company secrets resolve (proves `master.key` matches); agents' heartbeat setting
 expect **before** anything is resumed; `GET /api/companies/<id>/live-runs` shows no
 leftover queued/running runs (cancel them with `POST /api/heartbeat-runs/<run>/cancel`).
 
-**Verification status:** the dump format was restored into a scratch database (dump from
-2026-11-10: 1 company, 7 agents, 25 issues, 44 runs, migrations applied cleanly) in a
-disposable, network-isolated container. A full restore of this production instance
-(steps above, end to end) has **not** been rehearsed: do it once on a copy before relying
-on option B.
+**Verification status (2026-11-10):** option B was rehearsed end to end on a copy of the
+pre-migration backup (`db/` removed, dump `paperclip-20261110-174257`), with these exact
+commands, in a network-isolated throwaway container: restore and migrations clean, then
+1 company, 7 agents, 28 issues, no leftover runs, `local_encrypted` secrets provider `ok`
+with the restored `master.key`. Option A is a plain file copy of a stopped instance.
 
 ## Organizations
 

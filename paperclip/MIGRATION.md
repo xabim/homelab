@@ -115,19 +115,11 @@ issues must be there; check the agents' heartbeat settings are unchanged. Run
 
 ## 9. Operator tooling in the ai-studio repository
 
-`/srv/docker/ai-studio/scripts/studio` reads the old stack's `.env`. Its API commands
-(`run`, `lock`, `cancel`, `runs`, `agents`, `verify-gate`, `timers`) keep working with these
-overrides in `~/.config/ai-studio/studio.env`:
-
-```bash
-COMPOSE_PROJECT=paperclip
-INSTANCE_ENV=/srv/docker/volumes/paperclip/home/instances/default/.env
-WORKSPACES_HOST=/srv/docker/volumes/paperclip/workspaces
-```
-
-Its lifecycle commands (`bootstrap`, `build`, `up`, `down`, `restart`, `logs`,
-`egress-reload`, `agent-home`, `identities`) target the old stack/paths: use Portainer and
-`paperclip/README.md` instead, until that repository is cleaned up (separate change).
+Done in `xabim/ai-studio` (a370d81): `scripts/studio` defaults to this stack, the
+`forgejo-runner` stack and `/srv/docker/volumes/paperclip`; no overrides needed.
+The Forgejo runner moved the same way (homelab `forgejo-runner/`, data in
+`/srv/docker/volumes/forgejo-runner`); the old Portainer stack `ai-studio-ci` is stopped
+and can be deleted.
 
 ## Rollback
 
