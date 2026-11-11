@@ -40,7 +40,8 @@ manual ([Organizations](#organizations)). Adding an organization needs no change
 
 `.env` (tracked): `PAPERCLIP_VERSION` (upstream image tag, pinned to a commit), `PLAYWRIGHT_VERSION`,
 `PUID`/`PGID`, `PAPERCLIP_HOSTNAME`, `FORGEJO_HOSTNAME`, `PAPERCLIP_MEM_LIMIT`, `PAPERCLIP_CPUS`,
-`AGENT_GIT_POLICY` (`review` | `commit` | `push`: which `config/claude/git-policy-*.json` is mounted).
+`AGENT_GIT_POLICY` (`review` | `commit` | `push`: which `config/claude/git-policy-*.json` is mounted;
+`push` allows feature-branch pushes, rewriting history only with `--force-with-lease`).
 
 `.env.secrets` (gitignored): `BETTER_AUTH_SECRET`, `PAPERCLIP_TOOL_ACTION_SIGNING_SECRET`,
 `CLAUDE_CODE_OAUTH_TOKEN`, `FORGEJO_BOT_USER`, `FORGEJO_BOT_TOKEN`.
