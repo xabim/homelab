@@ -41,7 +41,7 @@ x-resource-service: &resource_service
 services:
   # Forgejo: self-hosted Git service
   forgejo:
-    image: codeberg.org/forgejo/forgejo:15
+    image: codeberg.org/forgejo/forgejo:17.0.1
     env_file:
       - ../.env.global
       - .env
