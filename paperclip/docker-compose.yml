@@ -15,8 +15,8 @@
 #         The image is built on the host first: see paperclip/README.md.
 #
 # Organizations (companies), agents, skills, projects and tasks are NOT defined
-# here. They live in Paperclip's database; versioned exports are kept in the
-# Forgejo repository `paperclip-organizations`.
+# here. They live in Paperclip's database and data volume (both backed up).
+# Operator tooling: Forgejo repository `paperclip-ops`.
 #
 # Networks:
 #   proxy   external, shared with Traefik. ONLY the ingress relay joins it.

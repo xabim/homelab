@@ -18,12 +18,12 @@ one or many organizations, and contains nothing specific to any of them.
 | Layer | Source of truth | Where |
 |---|---|---|
 | Paperclip deployment, persistence, networking, backups | this directory | `github.com/xabim/homelab` |
-| Live organizations, agents, skills, projects, tasks, runs | **Paperclip's database** + `home/` | `/srv/docker/volumes/paperclip` |
-| Versioned snapshots of stable organization configs | official Paperclip exports | Forgejo repo `paperclip-organizations` |
+| Live organizations, agents, instructions, skills, projects, tasks, runs | **Paperclip's database** + `home/` (backed up) | `/srv/docker/volumes/paperclip` |
+| Operator tooling (`studio` CLI) | its own repository | Forgejo repo `paperclip-ops` |
 | Software projects | their own repositories | Forgejo |
 
-Paperclip never reads the `paperclip-organizations` repository; exports and imports are
-manual ([Organizations](#organizations)). Adding an organization needs no change here.
+Paperclip never reads the `paperclip-ops` repository. Adding an organization needs no change
+here ([Organizations](#organizations)).
 
 ## Files
 
@@ -173,8 +173,7 @@ mirrored to the external HDD by `backup-external.sh`):
 | Workspaces | rsync of `/srv/docker/volumes/paperclip/workspaces` (uncommitted agent work lives here) |
 | `.env.secrets`, compose, config | rsync of `/srv/docker/stacks` → `/srv/data/backups/nvme/stacks/` |
 
-Organization exports in `paperclip-organizations` are **not** backups (no tasks, comments,
-runs, costs, secrets or history).
+These backups are the only copy of the organizations: no export is kept anywhere else.
 
 ## Restore
 
@@ -233,11 +232,11 @@ with the restored `master.key`. Option A is a plain file copy of a stopped insta
 
 ## Organizations
 
-Create and edit organizations in the Paperclip UI. To version a stable configuration, export
-it (UI: company settings → Export, or `POST /api/companies/<id>/export`), review it for
-secrets, and commit it to `paperclip-organizations`; that repository documents the workflow.
-Import (UI: company settings → Import, or `paperclipai company import`) creates or merges an
-organization from such a package; it never runs automatically.
+Create and edit organizations, agent instructions and company skills in the Paperclip UI;
+Paperclip keeps their revision history. They are recovered from the backups above, not
+from exports. An import (UI: company settings → Import, or `paperclipai company import`)
+stores company skills as read-only catalog copies; turn each one into a managed skill
+(fork, delete the catalog copy, rename the fork back) to edit it again.
 
 ## Egress allowlist
 
