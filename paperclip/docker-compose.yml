@@ -261,9 +261,13 @@ services:
       - forge
     extra_hosts:
       - "${FORGEJO_HOSTNAME}:172.31.251.2"
+    # Wait for Paperclip to answer before the first pass (it needs a minute or
+    # two after a redeploy); otherwise the log starts with a false alarm.
     depends_on:
-      - paperclip
-      - forgejo-gw
+      paperclip:
+        condition: service_healthy
+      forgejo-gw:
+        condition: service_started
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
