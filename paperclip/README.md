@@ -145,6 +145,29 @@ and after changing `PAPERCLIP_VERSION`, `PLAYWRIGHT_VERSION` or `image/Dockerfil
 cd /srv/docker/stacks/paperclip && docker compose -p paperclip build paperclip
 ```
 
+The `studio-sync` image is local too (Alpine + curl + jq, about 15 MB). Build it before the
+first deploy and after changing `sync/Dockerfile`:
+
+```bash
+cd /srv/docker/stacks/paperclip && docker compose -p paperclip build studio-sync
+```
+
+## Studio sync
+
+`studio-sync` is a small sidecar for organizations that use the AI Studio flow of the
+`paperclip-ops` repository. It lets the owner work from the Forgejo and Paperclip web UIs
+alone: every 90 seconds it looks at the issues waiting for the owner's approval and at their
+pull requests, closes the issue of a merged pull request, updates approved branches that
+are behind `main`, and returns conflicting pull requests and the owner's "request changes"
+to the developer. The logic is `config/sync/studio-sync.sh` (mounted read-only).
+
+It holds the owner's Paperclip board key, so it has its own env file,
+`/srv/docker/stacks/paperclip/sync.env.secrets` (template: `sync.env.secrets.example`), which
+the `paperclip` container never sees, and it reaches Forgejo through `forgejo-gw` as its
+own account `studio-sync`. `docker logs paperclip-studio-sync-1` shows one line per action.
+After editing the script or the env file: `docker compose -p paperclip up -d --no-build
+--force-recreate studio-sync`.
+
 ## Update Paperclip
 
 1. Read the upstream release notes/commits between the current and target tags (migrations,

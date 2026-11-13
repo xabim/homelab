@@ -20,10 +20,10 @@
 #
 # Networks:
 #   proxy   external, shared with Traefik. ONLY the ingress relay joins it.
-#   app     internal: ingress relay <-> paperclip
+#   app     internal: ingress relay <-> paperclip <- studio-sync
 #   egress  internal: paperclip -> egress-proxy (its only way out)
 #   out     bridge:   egress-proxy / forgejo-gw -> internet and forgejo.home
-#   forge   internal: paperclip -> forgejo-gw (Paperclip plugin workers only)
+#   forge   internal: paperclip (plugin workers) and studio-sync -> forgejo-gw
 # =============================================================================
 
 # Anchors copied from ../resource-limits.yaml (only the ones referenced)
@@ -208,6 +208,62 @@ services:
       forge:
         ipv4_address: 172.31.251.2
       out: {}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    <<: [*resource_xsmall, *resource_service]
+
+  # ---------------------------------------------------------------------------
+  # Studio sync: lets the owner run the AI Studio from the Forgejo and
+  # Paperclip web UIs alone. Every SYNC_INTERVAL seconds it looks at the issues
+  # that wait for the owner's approval and at their pull requests: a merged
+  # pull request closes its issue, an approved branch behind main is updated,
+  # conflicts and the owner's "request changes" return the issue to its
+  # developer (config/sync/studio-sync.sh has the details).
+  #
+  # It holds the owner's Paperclip board key, so it is kept away from the
+  # agents: its own container and env file, and its script mounted read-only
+  # from the stack directory, never from a volume agents can write.
+  # Not needed if no organization uses the studio flow of paperclip-ops.
+  # ---------------------------------------------------------------------------
+  studio-sync:
+    # The Alpine version is pinned here, not in .env: .env is also the
+    # environment of the paperclip service, and a new variable there would
+    # recreate that container (and interrupt agent runs) on the next deploy.
+    image: homelab/studio-sync:alpine-3.22
+    # Built on the host (README "Build the image"); never pulled.
+    build:
+      context: ./sync
+      args:
+        ALPINE_VERSION: "3.22"
+    pull_policy: never
+    user: "65534:65534"
+    read_only: true
+    env_file:
+      # PAPERCLIP_AUTH_HEADER, PAPERCLIP_COMPANY_ID, FORGEJO_SYNC_TOKEN,
+      # FORGEJO_ORG, FORGEJO_OWNER_USER (sync.env.secrets.example)
+      - /srv/docker/stacks/paperclip/sync.env.secrets
+    environment:
+      PAPERCLIP_URL: http://paperclip:3100
+      # Paperclip refuses requests for a hostname it does not know.
+      PAPERCLIP_HOST: ${PAPERCLIP_HOSTNAME}
+      # Forgejo through the forgejo-gw relay (plain HTTP in, verified TLS out).
+      FORGEJO_URL: http://${FORGEJO_HOSTNAME}:3129
+      SYNC_INTERVAL: "90"
+    volumes:
+      - /srv/docker/stacks/paperclip/config/sync/studio-sync.sh:/studio-sync.sh:ro
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    networks:
+      - app
+      - forge
+    extra_hosts:
+      - "${FORGEJO_HOSTNAME}:172.31.251.2"
+    depends_on:
+      - paperclip
+      - forgejo-gw
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
