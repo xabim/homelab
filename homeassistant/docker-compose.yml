@@ -1,5 +1,5 @@
 # =============================================================================
-# Home Assistant - home automation (local control of the Roomba, no cloud)
+# Home Assistant - home automation (local control, no cloud)
 #
 # Mode:  always-on (automations must run whenever the host is up)
 # URL:   https://ha.home

@@ -118,7 +118,7 @@ flowchart LR
 | 🎧 [Yubal](https://github.com/guillevc/yubal) | https://yubal.home | on-demand | `yubal` | — |
 | 🧭 [Homepage](https://gethomepage.dev) | https://homepage.home | on-demand | `homepage` | `:9003` |
 | 📎 [Paperclip](https://github.com/paperclipai/paperclip) (AI agents, [notes](paperclip/README.md)) | https://paperclip.home | on-demand | `paperclip` | — |
-| 🏡 [Home Assistant](https://www.home-assistant.io) (local Roomba control) | https://ha.home | always-on | `homeassistant` | — |
+| 🏡 [Home Assistant](https://www.home-assistant.io) | https://ha.home | always-on | `homeassistant` | — |
 | 🐳 [Portainer](https://www.portainer.io) | https://portainer.home | infra | `portainer` (CLI) | `:9001` |
 | 🚦 [Traefik](https://traefik.io/traefik/) dashboard | — (no DNS record) | infra | `traefik` (CLI) | `:9004` |
 | 🔏 [step-ca](https://smallstep.com/docs/step-ca/) | https://ca.home:9000 | infra | `step-ca` (CLI) | `:9000` |
