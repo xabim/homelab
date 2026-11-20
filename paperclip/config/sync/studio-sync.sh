@@ -61,11 +61,14 @@ pass() {
     ident=$(printf '%s' "$issue" | jq -r .identifier)
     # The branch carries the issue id, or the id of the issue this one continues.
     work=$(printf '%s' "$issue" | jq -r '(.description // "") | (capture("^Continues: (?<i>[A-Z]+-[0-9]+)") | .i) // empty'); work=${work:-$ident}
-    [ -n "$repos" ] || repos=$(fj GET "/orgs/$FORGEJO_ORG/repos?limit=50" | jq -r '.[] | select(.archived | not) | .name') || { log "Forgejo not reachable"; return; }
+    # curl's status, not jq's: a pipe would turn an unreachable Forgejo into "no pull request".
+    [ -n "$repos" ] || { repos=$(fj GET "/orgs/$FORGEJO_ORG/repos?limit=50") \
+      && repos=$(printf '%s' "$repos" | jq -r '.[] | select(.archived | not) | .name'); } || { log "Forgejo not reachable"; return; }
     pr=''; repo=''
     for r in $repos; do
       # Newest first, so a reopened or replaced pull request wins over an old closed one.
-      pr=$(fj GET "/repos/$FORGEJO_ORG/$r/pulls?state=all&sort=recentupdate&limit=50" \
+      pulls=$(fj GET "/repos/$FORGEJO_ORG/$r/pulls?state=all&sort=recentupdate&limit=50") || { log "Forgejo not reachable"; return; }
+      pr=$(printf '%s' "$pulls" \
         | jq -c --arg re "(^|/)$work(-|\$)" '[.[] | select(.head.ref | test($re))] | (map(select(.state == "open")) + map(select(.merged)))[0] // empty') || pr=''
       [ -z "$pr" ] || { repo="$FORGEJO_ORG/$r"; break; }
     done
