@@ -257,8 +257,11 @@ services:
     tmpfs:
       - /tmp:size=8m,mode=1777
     networks:
-      - app
-      - forge
+      app: {}
+      # Pinned so it can never take forgejo-gw's address (172.31.251.2) when
+      # the stack starts in a different order.
+      forge:
+        ipv4_address: 172.31.251.4
     extra_hosts:
       - "${FORGEJO_HOSTNAME}:172.31.251.2"
     # Wait for Paperclip to answer before the first pass (it needs a minute or
