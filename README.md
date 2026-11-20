@@ -12,7 +12,7 @@ with real TLS on every service and resource limits on every container.
 ![Traefik](https://img.shields.io/badge/Traefik-v3.7-24A1C1?logo=traefikproxy&logoColor=white)
 ![step-ca](https://img.shields.io/badge/PKI-step--ca-EB6100?logo=letsencrypt&logoColor=white)
 ![ZFS](https://img.shields.io/badge/Storage-ZFS_mirror-2A6DB0)
-![Stacks](https://img.shields.io/badge/stacks-16-brightgreen)
+![Stacks](https://img.shields.io/badge/stacks-17-brightgreen)
 
 </div>
 
@@ -49,7 +49,7 @@ with real TLS on every service and resource limits on every container.
 | | |
 |---|---|
 | 🖥️ **Host** | A single Debian box · NVMe for OS, configs and databases · ZFS mirror for bulk data (`/srv/data`) |
-| 📦 **Stacks** | 12 app stacks managed by **Portainer** (from this repo on GitHub) + 4 infrastructure stacks managed by CLI |
+| 📦 **Stacks** | 13 app stacks managed by **Portainer** (from this repo on GitHub) + 4 infrastructure stacks managed by CLI |
 | 🔐 **TLS** | Internal CA (**step-ca**) issues 30-day certificates to **Traefik** over ACME — every `*.home` URL is real HTTPS · [deep dive](docs/tls.md) |
 | 🌐 **DNS** | **Pi-hole** on a separate device resolves `*.home` → the host |
 | 📱 **Ops** | Start/stop/logs/restart from a phone at `https://portainer.home` |
@@ -118,6 +118,7 @@ flowchart LR
 | 🎧 [Yubal](https://github.com/guillevc/yubal) | https://yubal.home | on-demand | `yubal` | — |
 | 🧭 [Homepage](https://gethomepage.dev) | https://homepage.home | on-demand | `homepage` | `:9003` |
 | 📎 [Paperclip](https://github.com/paperclipai/paperclip) (AI agents, [notes](paperclip/README.md)) | https://paperclip.home | on-demand | `paperclip` | — |
+| 🏡 [Home Assistant](https://www.home-assistant.io) (local Roomba control) | https://ha.home | always-on | `homeassistant` | — |
 | 🐳 [Portainer](https://www.portainer.io) | https://portainer.home | infra | `portainer` (CLI) | `:9001` |
 | 🚦 [Traefik](https://traefik.io/traefik/) dashboard | — (no DNS record) | infra | `traefik` (CLI) | `:9004` |
 | 🔏 [step-ca](https://smallstep.com/docs/step-ca/) | https://ca.home:9000 | infra | `step-ca` (CLI) | `:9000` |

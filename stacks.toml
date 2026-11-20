@@ -28,6 +28,9 @@ mode = "always-on"
 env_from = "invidious/.env.secrets"
 env = ["POSTGRES_PASSWORD", "SERVER_SECRET_KEY", "HMAC_KEY"]
 
+[stacks.homeassistant]
+mode = "always-on"
+
 [stacks.immich]
 mode = "on-demand"
 
