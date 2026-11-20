@@ -199,7 +199,7 @@ services:
     image: alpine/socat:1.8.0.3
     command:
       - TCP-LISTEN:3129,fork,reuseaddr
-      - OPENSSL:${FORGEJO_HOSTNAME}:443,cafile=/etc/ssl/homelab/root_ca.crt,verify=1,commonname=${FORGEJO_HOSTNAME},snihost=${FORGEJO_HOSTNAME}
+      - OPENSSL:${FORGEJO_HOSTNAME}:443,cafile=/etc/ssl/homelab/root_ca.crt,verify=1,commonname=${FORGEJO_HOSTNAME},snihost=${FORGEJO_HOSTNAME},pf=ip4
     user: "65534:65534"
     read_only: true
     volumes:
