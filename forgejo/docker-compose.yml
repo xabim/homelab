@@ -66,9 +66,7 @@ services:
     security_opt:
       - no-new-privileges:true
     # Note: cap_drop intentionally omitted due to compatibility issues
-    <<: [*resource_medium, *resource_service]
-    # CI clones/API calls pushed it to the 512m tier limit: memory only, CPU stays medium
-    mem_limit: 1g
+    <<: [*resource_large, *resource_service]
 
   # PostgreSQL database for Forgejo
   db:
