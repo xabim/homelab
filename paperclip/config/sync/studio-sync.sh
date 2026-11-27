@@ -12,7 +12,11 @@
 #   pull request merged            -> closes the issue (the owner's approval)
 #   owner requested changes on it  -> returns the issue to its developer
 #   it conflicts with main         -> returns the issue to its developer
-#   its branch is behind main      -> updates the branch (CI runs again)
+#   its branch is behind main      -> updates the branch (CI runs again), only
+#                                     with SYNC_UPDATE_BRANCHES=1 (default off: main
+#                                     no longer requires an up-to-date branch, and the
+#                                     update dismisses the reviewer's approval, which
+#                                     sent approved PRs back to review in a loop)
 #
 # It acts in Paperclip with the owner's board key and in Forgejo as its own
 # account. It never merges, never approves a pull request and never starts
@@ -28,6 +32,7 @@
 #   FORGEJO_ORG            organisation that holds the project repositories
 #   FORGEJO_OWNER_USER     the owner's Forgejo login (whose reviews count)
 #   SYNC_INTERVAL          seconds between passes (default 90)
+#   SYNC_UPDATE_BRANCHES   1 to bring approved branches up to date with main (default 0)
 # =============================================================================
 set -u
 : "${PAPERCLIP_URL:?}" "${PAPERCLIP_AUTH_HEADER:?}" "${PAPERCLIP_COMPANY_ID:?}"
@@ -98,6 +103,7 @@ pass() {
     fi
     rm -f "$STATE/$ident.conflict"
 
+    [ "${SYNC_UPDATE_BRANCHES:-0}" = 1 ] || continue
     main=$(fj GET "/repos/$repo/branches/main" | jq -r .commit.id) || continue
     if [ "$(printf '%s' "$pr" | jq -r .merge_base)" != "$main" ] && [ ! -e "$STATE/$ident.$main.updated" ]; then
       # Once per (issue, main commit): if the update fails it is logged, not retried every pass.
